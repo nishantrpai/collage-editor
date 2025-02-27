@@ -59,6 +59,7 @@ export default function CollageMaker() {
   const [isPanning, setIsPanning] = useState(false)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const savedLayouts = localStorage.getItem("customLayouts")
@@ -84,6 +85,10 @@ export default function CollageMaker() {
       }
     }
   }, [deleteLayoutId, layouts]);
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -296,7 +301,15 @@ export default function CollageMaker() {
     setDragStart(null)
   }
 
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
+
+  // Don't render until mounted to prevent theme mismatch
+  if (!mounted) {
+    return null
+  }
+
+  // Use resolvedTheme instead of theme for more reliable detection
+  const currentTheme = resolvedTheme || 'light'
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -457,7 +470,7 @@ export default function CollageMaker() {
                     isSaving={isSaving}
                     backgroundColor={backgroundColor} // Use backgroundColor directly
                     isFreeFlow={isFreeFlow}
-                    theme={theme}
+                    theme={currentTheme}
                   />
                 </div>
               </div>
