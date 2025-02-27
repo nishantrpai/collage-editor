@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Trash2 } from "lucide-react"
 import type { Layout } from "./types"
 
 interface LayoutSelectorProps {
@@ -14,6 +16,7 @@ interface LayoutSelectorProps {
   onGapChange: (gap: number) => void
   onBackgroundColorChange: (color: string) => void
   backgroundColor: string
+  onDeleteLayout?: (layoutId: string) => void
 }
 
 export function LayoutSelector({
@@ -23,6 +26,7 @@ export function LayoutSelector({
   onGapChange,
   onBackgroundColorChange,
   backgroundColor,
+  onDeleteLayout,
 }: LayoutSelectorProps) {
   const [gap, setGap] = useState(selected.gap || 8)
 
@@ -35,33 +39,53 @@ export function LayoutSelector({
     <div className="space-y-4 p-4">
       <div className="grid grid-cols-2 gap-2">
         {layouts.map((layout, index) => (
-          <button
+          <div
             key={index}
-            className={cn(
-              "p-2 border rounded hover:bg-accent transition-colors dark:border-gray-700 dark:hover:bg-gray-700",
-              selected.id === layout.id && "border-primary bg-accent dark:border-primary dark:bg-gray-600",
-            )}
-            onClick={() => onSelect(layout)}
+            className="relative group"
           >
-            <div className="aspect-square w-full bg-muted p-1 dark:bg-gray-800">
-              <div
-                className="w-full h-full grid"
-                style={{
-                  gridTemplateAreas: layout.areas,
-                  gap: `${gap}px`,
-                }}
-              >
-                {layout.cells.map((cell, i) => (
-                  <div
-                    key={i}
-                    className="bg-background border dark:bg-gray-700 dark:border-gray-600"
-                    style={{ gridArea: cell.id }}
-                  />
-                ))}
+            <button
+              className={cn(
+                "p-2 border rounded hover:bg-accent transition-colors dark:border-gray-700 dark:hover:bg-gray-700 w-full",
+                selected.id === layout.id && "border-primary bg-accent dark:border-primary dark:bg-gray-600",
+              )}
+              onClick={() => onSelect(layout)}
+            >
+              <div className="aspect-square w-full bg-muted p-1 dark:bg-gray-800">
+                <div
+                  className="w-full h-full grid"
+                  style={{
+                    gridTemplateAreas: layout.areas,
+                    gap: `${gap}px`,
+                  }}
+                >
+                  {layout.cells.map((cell, i) => (
+                    <div
+                      key={i}
+                      className="bg-background border dark:bg-gray-700 dark:border-gray-600"
+                      style={{ gridArea: cell.id }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="mt-1 text-xs truncate dark:text-gray-300">{layout.name}</div>
-          </button>
+              <div className="mt-1 text-xs truncate dark:text-gray-300">{layout.name}</div>
+            </button>
+            
+            {layout.isCustom && (
+              <div className="absolute top-2 right-2 invisible group-hover:visible">
+                <Button 
+                  variant="destructive" 
+                  size="icon" 
+                  className="w-6 h-6 shadow-md"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteLayout(layout.id);
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
         ))}
       </div>
       <div className="space-y-2">
@@ -81,4 +105,3 @@ export function LayoutSelector({
     </div>
   )
 }
-

@@ -16,6 +16,7 @@ import { CollageCanvas } from "./collage-canvas"
 import { LayoutSelector } from "./layout-selector"
 import { defaultLayouts } from "./layouts"
 import { AddLayoutDialog } from "./add-layout-dialog"
+import { DeleteLayoutDialog } from "./delete-layout-dialog"
 import { ImageControls } from "./image-controls"
 import { AllLayoutsPreview } from "./all-layouts-preview"
 import { ImageSelector } from "./image-selector"
@@ -38,6 +39,9 @@ export default function CollageMaker() {
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null)
   const [zoom, setZoom] = useState(100)
   const [showAddLayout, setShowAddLayout] = useState(false)
+  const [deleteLayoutId, setDeleteLayoutId] = useState<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [layoutToDelete, setLayoutToDelete] = useState<Layout | null>(null)
   const [collageState, setCollageState] = useState<CollageState>({
     images: [],
     imageTransforms: {},
@@ -63,6 +67,17 @@ export default function CollageMaker() {
       setCollageState(JSON.parse(savedState))
     }
   }, [])
+
+  useEffect(() => {
+    // Find the layout to delete when deleteLayoutId changes
+    if (deleteLayoutId) {
+      const layout = layouts.find(l => l.id === deleteLayoutId);
+      if (layout && layout.isCustom) {
+        setLayoutToDelete(layout);
+        setShowDeleteDialog(true);
+      }
+    }
+  }, [deleteLayoutId, layouts]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -159,6 +174,31 @@ export default function CollageMaker() {
     localStorage.setItem("customLayouts", JSON.stringify(updatedLayouts.filter((l) => l.isCustom)))
   }
 
+  const handleDeleteLayout = (layoutId: string) => {
+    setDeleteLayoutId(layoutId);
+  }
+
+  const confirmDeleteLayout = () => {
+    if (deleteLayoutId) {
+      // Filter out the layout to delete
+      const updatedLayouts = layouts.filter(layout => layout.id !== deleteLayoutId);
+      setLayouts(updatedLayouts);
+
+      // If the currently selected layout is being deleted, select the first available layout
+      if (selectedLayout.id === deleteLayoutId) {
+        setSelectedLayout(updatedLayouts[0]);
+      }
+
+      // Update localStorage with the new custom layouts
+      localStorage.setItem("customLayouts", JSON.stringify(updatedLayouts.filter(l => l.isCustom)));
+
+      // Reset state
+      setDeleteLayoutId(null);
+      setLayoutToDelete(null);
+      setShowDeleteDialog(false);
+    }
+  }
+
   const handleGapChange = (gap: number) => {
     setSelectedLayout((prev) => ({ ...prev, gap }))
   }
@@ -233,10 +273,16 @@ export default function CollageMaker() {
                   onGapChange={handleGapChange}
                   onBackgroundColorChange={setBackgroundColor}
                   backgroundColor={backgroundColor}
+                  onDeleteLayout={handleDeleteLayout}
                 />
               </TabsContent>
               <TabsContent value="preview">
-                <AllLayoutsPreview layouts={layouts} collageState={collageState} />
+                <AllLayoutsPreview 
+                  layouts={layouts} 
+                  collageState={collageState} 
+                  backgroundColor={backgroundColor}
+                  onDeleteLayout={handleDeleteLayout}
+                />
               </TabsContent>
             </Tabs>
             <ImageSelector images={collageState.images} onSelect={handleImageSelect} />
@@ -333,7 +379,16 @@ export default function CollageMaker() {
         </div>
       </div>
 
+      {/* Dialogs */}
       <AddLayoutDialog open={showAddLayout} onOpenChange={setShowAddLayout} onAdd={addCustomLayout} />
+      {layoutToDelete && (
+        <DeleteLayoutDialog 
+          open={showDeleteDialog} 
+          onOpenChange={setShowDeleteDialog} 
+          onConfirm={confirmDeleteLayout} 
+          layoutName={layoutToDelete.name} 
+        />
+      )}
     </DndProvider>
   )
 }
