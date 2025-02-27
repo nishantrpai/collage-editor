@@ -137,6 +137,16 @@ export function ImageControls({
         <Label>Background Color</Label>
         <Input type="color" value={backgroundColor} onChange={(e) => onBackgroundColorChange(e.target.value)} />
       </div>
+      <div className="grid gap-2">
+        <Label>Border Radius ({transform.borderRadius || 0}px)</Label>
+        <Slider
+          value={[transform.borderRadius || 0]}
+          onValueChange={(value) => onChange({ borderRadius: value[0] })}
+          min={0}
+          max={500}
+          step={1}
+        />
+      </div>
     </div>
   )
 }

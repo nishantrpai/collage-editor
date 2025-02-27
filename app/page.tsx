@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { CollageCanvas } from "./collage-canvas"
 import { LayoutSelector } from "./layout-selector"
 import { defaultLayouts } from "./layouts"
-import { AddLayoutDialog } from "./add-layout-dialog"
+import { LayoutDialog } from "./layout-dialog"
 import { DeleteLayoutDialog } from "./delete-layout-dialog"
 import { ImageControls } from "./image-controls"
 import { AllLayoutsPreview } from "./all-layouts-preview"
@@ -31,6 +31,7 @@ const defaultImageTransform: ImageTransform = {
   offsetY: 0,
   rotation: 0,
   scale: 1,
+  borderRadius: 0,
 }
 
 export default function CollageMaker() {
@@ -39,6 +40,7 @@ export default function CollageMaker() {
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null)
   const [zoom, setZoom] = useState(100)
   const [showAddLayout, setShowAddLayout] = useState(false)
+  const [layoutToEdit, setLayoutToEdit] = useState<Layout | null>(null)
   const [deleteLayoutId, setDeleteLayoutId] = useState<string | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [layoutToDelete, setLayoutToDelete] = useState<Layout | null>(null)
@@ -53,6 +55,7 @@ export default function CollageMaker() {
   const [backgroundColor, setBackgroundColor] = useState("#ffffff")
   const [isSaving, setIsSaving] = useState(false)
   const [isFreeFlow, setIsFreeFlow] = useState(false)
+  const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 1000 })
 
   useEffect(() => {
     const savedLayouts = localStorage.getItem("customLayouts")
@@ -241,6 +244,37 @@ export default function CollageMaker() {
     setSelectedCellId(null);
   }, []);
 
+  const handleEditLayout = (layout: Layout) => {
+    setLayoutToEdit(layout);
+    setShowAddLayout(true);
+  }
+
+  const addOrUpdateLayout = (newLayout: Layout) => {
+    if (layouts.some(l => l.id === newLayout.id)) {
+      // Update existing layout
+      const updatedLayouts = layouts.map(l => 
+        l.id === newLayout.id ? newLayout : l
+      );
+      setLayouts(updatedLayouts);
+      
+      // If we're editing the currently selected layout, update it
+      if (selectedLayout.id === newLayout.id) {
+        setSelectedLayout(newLayout);
+      }
+      
+      // Save to localStorage
+      localStorage.setItem("customLayouts", JSON.stringify(updatedLayouts.filter(l => l.isCustom)));
+    } else {
+      // Add new layout
+      const updatedLayouts = [...layouts, newLayout];
+      setLayouts(updatedLayouts);
+      localStorage.setItem("customLayouts", JSON.stringify(updatedLayouts.filter(l => l.isCustom)));
+    }
+    
+    // Reset edit state
+    setLayoutToEdit(null);
+  }
+
   const { theme } = useTheme()
 
   return (
@@ -274,6 +308,7 @@ export default function CollageMaker() {
                   onBackgroundColorChange={setBackgroundColor}
                   backgroundColor={backgroundColor}
                   onDeleteLayout={handleDeleteLayout}
+                  onEditLayout={handleEditLayout}
                 />
               </TabsContent>
               <TabsContent value="preview">
@@ -282,6 +317,7 @@ export default function CollageMaker() {
                   collageState={collageState} 
                   backgroundColor={backgroundColor}
                   onDeleteLayout={handleDeleteLayout}
+                  onEditLayout={handleEditLayout}
                 />
               </TabsContent>
             </Tabs>
@@ -318,6 +354,29 @@ export default function CollageMaker() {
               </div>
               <span className="text-sm">{zoom}%</span>
             </div>
+            <div className="flex items-center gap-4">
+              <Label>Canvas:</Label>
+              <div className="w-32">
+                <Slider 
+                  value={[canvasSize.width]} 
+                  onValueChange={(value) => setCanvasSize(prev => ({ ...prev, width: value[0] }))} 
+                  min={500} 
+                  max={2000} 
+                  step={100} 
+                />
+              </div>
+              <span className="text-sm">{canvasSize.width}px</span>
+              <div className="w-32">
+                <Slider 
+                  value={[canvasSize.height]} 
+                  onValueChange={(value) => setCanvasSize(prev => ({ ...prev, height: value[0] }))} 
+                  min={500} 
+                  max={2000} 
+                  step={100} 
+                />
+              </div>
+              <span className="text-sm">{canvasSize.height}px</span>
+            </div>
             <div className="flex items-center gap-2">
               <Checkbox
                 id="free-flow"
@@ -335,8 +394,8 @@ export default function CollageMaker() {
                 <div
                   className="mx-auto shadow-lg collage-canvas"
                   style={{
-                    width: 1000,
-                    height: 1000,
+                    width: canvasSize.width,
+                    height: canvasSize.height,
                     transform: `scale(${zoom / 100})`,
                     transformOrigin: "top center",
                     backgroundColor: backgroundColor, // Use backgroundColor directly
@@ -380,7 +439,12 @@ export default function CollageMaker() {
       </div>
 
       {/* Dialogs */}
-      <AddLayoutDialog open={showAddLayout} onOpenChange={setShowAddLayout} onAdd={addCustomLayout} />
+      <LayoutDialog 
+        open={showAddLayout} 
+        onOpenChange={setShowAddLayout} 
+        onSave={addOrUpdateLayout} 
+        layoutToEdit={layoutToEdit} 
+      />
       {layoutToDelete && (
         <DeleteLayoutDialog 
           open={showDeleteDialog} 

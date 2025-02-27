@@ -85,7 +85,10 @@ export function ImageCell({
   return (
     <div
       ref={isFreeFlow ? combinedRef : undefined}
-      style={cellStyle}
+      style={{
+        ...cellStyle,
+        borderRadius: `${transform?.borderRadius || 0}px`,
+      }}
       className={`overflow-hidden ${isSelected && !isPreview && !isSaving ? "ring-2 ring-primary" : ""}`}
       onClick={onClick}
       data-cell-id={cellId}
@@ -96,6 +99,7 @@ export function ImageCell({
             className="w-full h-full relative overflow-hidden"
             style={{
               transform: `scale(${transform?.zoom || 1})`,
+              borderRadius: `${transform?.borderRadius || 0}px`,
             }}
           >
             <img

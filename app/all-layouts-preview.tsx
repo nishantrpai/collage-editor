@@ -3,7 +3,7 @@
 import { useTheme } from "next-themes"
 import { CollageCanvas } from "./collage-canvas"
 import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
+import { Trash2, Edit } from "lucide-react"
 import type { Layout, CollageState } from "./types"
 
 interface AllLayoutsPreviewProps {
@@ -11,13 +11,15 @@ interface AllLayoutsPreviewProps {
   collageState: CollageState
   backgroundColor?: string
   onDeleteLayout?: (layoutId: string) => void
+  onEditLayout?: (layout: Layout) => void
 }
 
 export function AllLayoutsPreview({ 
   layouts, 
   collageState, 
   backgroundColor,
-  onDeleteLayout 
+  onDeleteLayout,
+  onEditLayout
 }: AllLayoutsPreviewProps) {
   const { theme } = useTheme()
   const bgColor = backgroundColor || (theme === 'dark' ? '#000000' : '#ffffff')
@@ -40,7 +42,18 @@ export function AllLayoutsPreview({
           </div>
           
           {layout.isCustom && (
-            <div className="absolute top-2 right-2 invisible group-hover:visible">
+            <div className="absolute top-2 right-2 invisible group-hover:visible flex gap-1">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="w-7 h-7 shadow-md bg-background"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditLayout(layout);
+                }}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
               <Button 
                 variant="destructive" 
                 size="icon" 

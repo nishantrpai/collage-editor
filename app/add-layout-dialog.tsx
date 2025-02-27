@@ -14,9 +14,10 @@ interface AddLayoutDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAdd: (layout: Layout) => void
+  layoutToEdit?: Layout | null
 }
 
-export function AddLayoutDialog({ open, onOpenChange, onAdd }: AddLayoutDialogProps) {
+export function AddLayoutDialog({ open, onOpenChange, onAdd, layoutToEdit }: AddLayoutDialogProps) {
   const [name, setName] = useState("")
   const [gap, setGap] = useState(8)
   const [customLayout, setCustomLayout] = useState(
@@ -31,6 +32,23 @@ export function AddLayoutDialog({ open, onOpenChange, onAdd }: AddLayoutDialogPr
   const [previewAreas, setPreviewAreas] = useState<string[]>([])
   const [cells, setCells] = useState<{ id: string }[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  // Handle initial setup when editing an existing layout
+  useEffect(() => {
+    if (layoutToEdit) {
+      setName(layoutToEdit.name)
+      setGap(layoutToEdit.gap || 8)
+      
+      // Convert the layout's areas string back to the expected format
+      const areas = layoutToEdit.areas
+        .split('\n')
+        .map(row => row.replace(/"/g, '').trim())
+      
+      setCustomLayout(JSON.stringify({ areas }, null, 2))
+      setPreviewAreas(areas)
+      setCells(layoutToEdit.cells)
+    }
+  }, [layoutToEdit])
 
   useEffect(() => {
     validateLayout()
@@ -64,45 +82,30 @@ export function AddLayoutDialog({ open, onOpenChange, onAdd }: AddLayoutDialogPr
     }
   }
 
-  const handleAdd = () => {
+  const handleSave = () => {
     if (error) return
 
     try {
       const parsedLayout = JSON.parse(customLayout)
       const areasArray = parsedLayout.areas
-      const newLayout: Layout = {
-        id: `custom-${Date.now()}`,
+      const newLayout  = {
+        id: layoutToEdit ? layoutToEdit.id : `custom-${Date.now()}`,
         name,
         areas: areasArray.map((row: string) => `"${row}"`).join('\n'),
-        cells,
-        gap,
-        isCustom: true,
       }
-
-      onAdd(newLayout)
-      onOpenChange(false)
-      resetForm()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid layout JSON")
-    }
-  }
-
-  const resetForm = () => {
-    setName("")
-    setGap(8)
-    setCustomLayout(
-      JSON.stringify(
-        {
-          areas: ["cell1 cell2", "cell3 cell2", "cell4 cell4"],
-        },
-        null,
-        2,
-      ),
-    )
+      //   {
+      //     areas: ["cell1 cell2", "cell3 cell2", "cell4 cell4"],
+      //   },
+      //   null,
+      //   2,
+      // ),
+    // )
     setPreviewAreas([])
     setCells([])
     setError(null)
   }
+}
+  
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

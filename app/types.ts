@@ -13,10 +13,10 @@ export interface ImageTransform {
   offsetY: number
   rotation: number
   scale: number
+  borderRadius?: number
 }
 
 export interface CollageState {
   images: string[]
   imageTransforms: Record<string, ImageTransform>
 }
-

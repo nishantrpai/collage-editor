@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
+import { Trash2, Edit } from "lucide-react"
 import type { Layout } from "./types"
 
 interface LayoutSelectorProps {
@@ -17,6 +17,7 @@ interface LayoutSelectorProps {
   onBackgroundColorChange: (color: string) => void
   backgroundColor: string
   onDeleteLayout?: (layoutId: string) => void
+  onEditLayout?: (layout: Layout) => void
 }
 
 export function LayoutSelector({
@@ -27,6 +28,7 @@ export function LayoutSelector({
   onBackgroundColorChange,
   backgroundColor,
   onDeleteLayout,
+  onEditLayout,
 }: LayoutSelectorProps) {
   const [gap, setGap] = useState(selected.gap || 8)
 
@@ -71,7 +73,18 @@ export function LayoutSelector({
             </button>
             
             {layout.isCustom && (
-              <div className="absolute top-2 right-2 invisible group-hover:visible">
+              <div className="absolute top-2 right-2 invisible group-hover:visible flex gap-1">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="w-6 h-6 shadow-md bg-background"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditLayout(layout);
+                  }}
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
                 <Button 
                   variant="destructive" 
                   size="icon" 
