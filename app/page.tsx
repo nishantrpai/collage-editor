@@ -22,6 +22,7 @@ import { ImageSelector } from "./image-selector"
 import { ThemeToggle } from "./theme-toggle"
 import type { Layout, CollageState, ImageTransform } from "./types"
 import html2canvas from "html2canvas"
+import { useTheme } from "next-themes"
 
 const defaultImageTransform: ImageTransform = {
   zoom: 1,
@@ -85,12 +86,13 @@ export default function CollageMaker() {
     if (canvasElement) {
       try {
         const canvas = await html2canvas(canvasElement, {
-          scale: 2, // Increase scale for better quality
+          scale: 4, // Higher scale for better quality
           useCORS: true,
-          width: 1000, // Set fixed width
-          height: 1000, // Set fixed height
+          backgroundColor: theme === 'dark' ? '#000000' : '#ffffff',
+          width: 1000,
+          height: 1000,
         })
-        const dataUrl = canvas.toDataURL("image/png")
+        const dataUrl = canvas.toDataURL("image/png", 1.0) // Maximum quality
         const link = document.createElement("a")
         link.download = `collage-${Date.now()}.png`
         link.href = dataUrl
@@ -188,11 +190,22 @@ export default function CollageMaker() {
     setSelectedCellId(cellId)
   }, [])
 
+  // Add handler for clicks outside the canvas
+  const handleOutsideClick = (e: React.MouseEvent) => {
+    // Check if the click is outside the canvas area
+    const canvasArea = document.querySelector(".collage-canvas-wrapper")
+    if (canvasArea && !canvasArea.contains(e.target as Node)) {
+      setSelectedCellId(null)
+    }
+  }
+
+  const { theme } = useTheme()
+
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="flex h-screen bg-background dark:bg-gray-900">
+      <div className="flex h-screen bg-background dark:bg-black" onClick={handleOutsideClick}>
         {/* Left Sidebar */}
-        <div className="w-64 border-r bg-card dark:bg-gray-800 dark:border-gray-700">
+        <div className="w-64 border-r bg-card dark:bg-black dark:border-gray-800">
           <div className="p-4 flex justify-between items-center">
             <span className="font-semibold text-foreground dark:text-gray-200">Collage Layouts</span>
             <Button variant="ghost" size="icon" onClick={() => setShowAddLayout(true)}>
@@ -231,7 +244,7 @@ export default function CollageMaker() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Top Toolbar */}
-          <div className="h-14 border-b dark:border-gray-700 flex items-center px-6 py-6 gap-4">
+          <div className="h-14 border-b dark:border-gray-800 flex items-center px-6 py-6 gap-4">
             <ThemeToggle />
             <input
               type="file"
@@ -269,35 +282,39 @@ export default function CollageMaker() {
 
           {/* Canvas Area */}
           <div className="flex-1 grid grid-cols-[1fr,300px]">
-            <div className="p-8 overflow-auto bg-muted/20 dark:bg-gray-800">
-              <div
-                className="mx-auto bg-white dark:bg-gray-900 shadow-lg collage-canvas"
-                style={{
-                  width: 1000,
-                  height: 1000,
-                  transform: `scale(${zoom / 100})`,
-                  transformOrigin: "top center",
-                }}
-              >
-                <CollageCanvas
-                  layout={selectedLayout}
-                  collageState={collageState}
-                  onCellSelect={handleCellClick}
-                  onRemoveImage={handleRemoveImage}
-                  selectedCellId={selectedCellId}
-                  isSaving={isSaving}
-                  backgroundColor={backgroundColor}
-                  isFreeFlow={isFreeFlow}
-                />
+            <div className="p-8 overflow-auto bg-muted/20 dark:bg-black">
+              <div className="collage-canvas-wrapper mx-auto">
+                <div
+                  className="mx-auto shadow-lg collage-canvas"
+                  style={{
+                    width: 1000,
+                    height: 1000,
+                    transform: `scale(${zoom / 100})`,
+                    transformOrigin: "top center",
+                    backgroundColor: theme === 'dark' ? '#000000' : '#ffffff',
+                  }}
+                >
+                  <CollageCanvas
+                    layout={selectedLayout}
+                    collageState={collageState}
+                    onCellSelect={handleCellClick}
+                    onRemoveImage={handleRemoveImage}
+                    selectedCellId={selectedCellId}
+                    isSaving={isSaving}
+                    backgroundColor={theme === 'dark' ? '#000000' : '#ffffff'}
+                    isFreeFlow={isFreeFlow}
+                    theme={theme}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Image Controls Sidebar */}
             {selectedCellId && (
-              <div className="border-l p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="border-l p-4 dark:border-gray-800 dark:bg-black">
                 <ImageControls
                   transform={collageState.imageTransforms[selectedCellId] || defaultImageTransform}
-                  backgroundColor={collageState.cellBackgroundColors[selectedCellId] || "#ffffff"}
+                  backgroundColor={collageState.cellBackgroundColors[selectedCellId] || (theme === 'dark' ? '#000000' : '#ffffff')}
                   gridPercentage={
                     collageState.gridPercentages[selectedCellId] || { width: 100, height: 100, offsetX: 0, offsetY: 0 }
                   }
@@ -317,4 +334,3 @@ export default function CollageMaker() {
     </DndProvider>
   )
 }
-

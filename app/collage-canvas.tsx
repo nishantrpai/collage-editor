@@ -13,6 +13,7 @@ interface CollageCanvasProps {
   isSaving?: boolean
   backgroundColor: string
   isFreeFlow: boolean
+  theme?: string
 }
 
 export function CollageCanvas({
@@ -25,6 +26,7 @@ export function CollageCanvas({
   isSaving,
   backgroundColor,
   isFreeFlow,
+  theme,
 }: CollageCanvasProps) {
   const gridStyle = isFreeFlow
     ? { display: "block", position: "relative" as const, width: "100%", height: "100%" }
@@ -34,14 +36,20 @@ export function CollageCanvas({
         gap: layout.gap ?? 8,
       }
 
+  // Use theme-based background if available
+  const bgColor = theme === 'dark' ? '#000000' : backgroundColor || '#ffffff'
+
   return (
     <div
       className="w-full h-full relative"
       style={{
-        backgroundColor: backgroundColor,
+        backgroundColor: bgColor,
         ...gridStyle,
       }}
-      onClick={() => onCellSelect && onCellSelect(null)}
+      onClick={(e) => {
+        e.stopPropagation()
+        onCellSelect && onCellSelect(null)
+      }}
     >
       {layout.cells.map((cell, index) => {
         const cellId = cell.id
@@ -57,7 +65,7 @@ export function CollageCanvas({
             cellId={cellId}
             image={collageState.images[collageState.cellImageMap[cellId]]}
             transform={collageState.imageTransforms[cellId]}
-            backgroundColor={collageState.cellBackgroundColors[cellId]}
+            backgroundColor={collageState.cellBackgroundColors[cellId] || bgColor}
             onClick={(e) => {
               e.stopPropagation()
               onCellSelect && onCellSelect(cellId)
@@ -69,10 +77,10 @@ export function CollageCanvas({
             gridPercentage={gridPercentage}
             isFreeFlow={isFreeFlow}
             zIndex={collageState.zIndexes[cellId] || 0}
+            theme={theme}
           />
         )
       })}
     </div>
   )
 }
-

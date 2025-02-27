@@ -1,8 +1,7 @@
 "use client"
 
-import type React from "react"
-
-import { useDrop } from "react-dnd"
+import React from "react"
+import { useDrag, useDrop } from "react-dnd"
 import { cn } from "@/lib/utils"
 import { ImagePlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,7 +12,7 @@ interface ImageCellProps {
   image?: string
   transform?: ImageTransform
   backgroundColor?: string
-  onClick?: () => void
+  onClick?: (e: React.MouseEvent) => void
   onRemove?: () => void
   isSelected?: boolean
   isPreview?: boolean
@@ -21,12 +20,13 @@ interface ImageCellProps {
   gridPercentage: { width: number; height: number; offsetX: number; offsetY: number }
   isFreeFlow: boolean
   zIndex: number
+  theme?: string
 }
 
 export function ImageCell({
   cellId,
   image,
-  transform,
+  transform = { zoom: 1, offsetX: 0, offsetY: 0, rotation: 0, scale: 1 },
   backgroundColor,
   onClick,
   onRemove,
@@ -36,79 +36,100 @@ export function ImageCell({
   gridPercentage,
   isFreeFlow,
   zIndex,
+  theme,
 }: ImageCellProps) {
-  const [{ isOver }, drop] = useDrop(() => ({
-    accept: "image",
-    drop: () => ({ cellId }),
+  const [{ isDragging }, drag] = useDrag({
+    type: "IMAGE_CELL",
+    item: { id: cellId },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+    canDrag: isFreeFlow && !isPreview,
+  })
+
+  const [{ isOver }, drop] = useDrop({
+    accept: "IMAGE_CELL",
     collect: (monitor) => ({
       isOver: monitor.isOver(),
     }),
-  }))
+  })
 
-  const cellStyle: React.CSSProperties = {
-    position: "absolute",
-    left: isFreeFlow ? `${gridPercentage.offsetX}%` : 0,
-    top: isFreeFlow ? `${gridPercentage.offsetY}%` : 0,
-    width: `${gridPercentage.width}%`,
-    height: `${gridPercentage.height}%`,
-    backgroundColor: backgroundColor || "transparent",
-    overflow: "hidden",
-    zIndex: zIndex,
-  }
+  const defaultBackground = theme === 'dark' ? '#000000' : '#ffffff'
 
-  if (!isFreeFlow) {
-    cellStyle.gridArea = cellId
-  }
-
-  const imageStyle: React.CSSProperties = transform
+  const cellStyle = isFreeFlow
     ? {
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        transform: `
-          translate(${transform.offsetX}px, ${transform.offsetY}px)
-          rotate(${transform.rotation}deg)
-          scale(${transform.scale * transform.zoom})
-        `,
-        transformOrigin: "center center",
+        position: "absolute" as const,
+        width: `${gridPercentage.width}%`,
+        height: `${gridPercentage.height}%`,
+        left: `${gridPercentage.offsetX}%`,
+        top: `${gridPercentage.offsetY}%`,
+        zIndex: zIndex,
+        backgroundColor: backgroundColor || defaultBackground,
+        cursor: "move",
+        opacity: isDragging ? 0.5 : 1,
       }
-    : { width: "100%", height: "100%", objectFit: "cover" }
+    : {
+        gridArea: cellId,
+        backgroundColor: backgroundColor || defaultBackground,
+        position: "relative" as const,
+      }
+
+  const imageContainerRef = React.useRef<HTMLDivElement>(null)
+
+  const combinedRef = (el: HTMLDivElement) => {
+    drag(el)
+    drop(el)
+    imageContainerRef.current = el
+  }
 
   return (
     <div
-      ref={!isPreview ? drop : undefined}
+      ref={isFreeFlow ? combinedRef : undefined}
       style={cellStyle}
-      className={cn(
-        "relative border-0 border-dashed",
-        isOver && "border-primary",
-        isSelected && "ring-2 ring-primary ring-offset-2",
-        image && "border-none",
-      )}
+      className={`overflow-hidden ${isSelected && !isPreview && !isSaving ? "ring-2 ring-primary" : ""}`}
       onClick={onClick}
+      data-cell-id={cellId}
     >
       {image ? (
-        <div className="w-full h-full">
-          <img src={image || "/placeholder.svg"} alt="" style={imageStyle} />
-          {(isSelected || isPreview) && onRemove && (
+        <>
+          <div
+            className="w-full h-full relative overflow-hidden"
+            style={{
+              transform: `scale(${transform?.zoom || 1})`,
+            }}
+          >
+            <img
+              src={image}
+              alt="Collage image"
+              className="absolute w-full h-full object-cover"
+              style={{
+                transform: `translate(${transform?.offsetX || 0}px, ${
+                  transform?.offsetY || 0
+                }px) rotate(${transform?.rotation || 0}deg) scale(${transform?.scale || 1})`,
+                transformOrigin: "center",
+              }}
+              draggable={false}
+            />
+          </div>
+          {!isPreview && !isSaving && isSelected && onRemove && (
             <Button
               variant="destructive"
               size="icon"
-              className="absolute top-2 right-2"
+              className="absolute top-1 right-1 w-6 h-6"
               onClick={(e) => {
                 e.stopPropagation()
                 onRemove()
               }}
             >
-              <X className="h-4 w-4" />
+              <X className="h-3 w-3" />
             </Button>
           )}
-        </div>
+        </>
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <ImagePlus className="h-8 w-8 text-muted-foreground" />
+        <div className="w-full h-full flex items-center justify-center bg-muted/20 dark:bg-black">
+          <span className="text-muted-foreground text-sm">Drop image here</span>
         </div>
       )}
     </div>
   )
 }
-

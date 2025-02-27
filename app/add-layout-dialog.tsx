@@ -69,10 +69,11 @@ export function AddLayoutDialog({ open, onOpenChange, onAdd }: AddLayoutDialogPr
 
     try {
       const parsedLayout = JSON.parse(customLayout)
+      const areasArray = parsedLayout.areas
       const newLayout: Layout = {
         id: `custom-${Date.now()}`,
         name,
-        areas: parsedLayout.areas,
+        areas: areasArray.map((row: string) => `"${row}"`).join('\n'),
         cells,
         gap,
         isCustom: true,
@@ -82,7 +83,7 @@ export function AddLayoutDialog({ open, onOpenChange, onAdd }: AddLayoutDialogPr
       onOpenChange(false)
       resetForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid layout JSON: Please check your input")
+      setError(err instanceof Error ? err.message : "Invalid layout JSON")
     }
   }
 
@@ -172,4 +173,3 @@ export function AddLayoutDialog({ open, onOpenChange, onAdd }: AddLayoutDialogPr
     </Dialog>
   )
 }
-
