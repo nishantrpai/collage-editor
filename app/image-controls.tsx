@@ -3,6 +3,7 @@
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import type { ImageTransform } from "./types"
 
 interface ImageControlsProps {
@@ -16,6 +17,7 @@ interface ImageControlsProps {
     percentage: Partial<{ width: number; height: number; offsetX: number; offsetY: number }>,
   ) => void
   onZIndexChange: (zIndex: number) => void
+  onDone: () => void
 }
 
 export function ImageControls({
@@ -27,9 +29,16 @@ export function ImageControls({
   onBackgroundColorChange,
   onGridPercentageChange,
   onZIndexChange,
+  onDone,
 }: ImageControlsProps) {
   return (
     <div className="grid gap-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Image Controls</h3>
+        <Button onClick={onDone} variant="secondary">
+          Done
+        </Button>
+      </div>
       <div className="grid gap-2">
         <Label>Zoom ({Math.round(transform.zoom * 100)}%)</Label>
         <Slider
@@ -131,4 +140,3 @@ export function ImageControls({
     </div>
   )
 }
-

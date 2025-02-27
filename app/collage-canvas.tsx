@@ -36,8 +36,8 @@ export function CollageCanvas({
         gap: layout.gap ?? 8,
       }
 
-  // Use theme-based background if available
-  const bgColor = theme === 'dark' ? '#000000' : backgroundColor || '#ffffff'
+  // Use the provided backgroundColor directly
+  const bgColor = backgroundColor || (theme === 'dark' ? '#000000' : '#ffffff')
 
   return (
     <div

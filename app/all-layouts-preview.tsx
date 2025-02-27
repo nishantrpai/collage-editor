@@ -1,17 +1,18 @@
 "use client"
 
-import type { Layout, CollageState } from "./types"
-import { CollageCanvas } from "./collage-canvas"
 import { useTheme } from "next-themes"
+import { CollageCanvas } from "./collage-canvas"
+import type { Layout, CollageState } from "./types"
 
 interface AllLayoutsPreviewProps {
   layouts: Layout[]
   collageState: CollageState
+  backgroundColor?: string
 }
 
-export function AllLayoutsPreview({ layouts, collageState }: AllLayoutsPreviewProps) {
+export function AllLayoutsPreview({ layouts, collageState, backgroundColor }: AllLayoutsPreviewProps) {
   const { theme } = useTheme()
-  const backgroundColor = theme === 'dark' ? '#000000' : '#ffffff'
+  const bgColor = backgroundColor || (theme === 'dark' ? '#000000' : '#ffffff')
 
   return (
     <div className="p-4 grid grid-cols-2 gap-4">
@@ -21,7 +22,7 @@ export function AllLayoutsPreview({ layouts, collageState }: AllLayoutsPreviewPr
             layout={layout}
             collageState={collageState}
             isPreview={true}
-            backgroundColor={backgroundColor}
+            backgroundColor={bgColor}
             isFreeFlow={false}
             theme={theme}
           />

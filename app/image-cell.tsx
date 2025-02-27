@@ -3,7 +3,7 @@
 import React from "react"
 import { useDrag, useDrop } from "react-dnd"
 import { cn } from "@/lib/utils"
-import { ImagePlus, X } from "lucide-react"
+import { Image, ImagePlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { ImageTransform } from "./types"
 
@@ -127,7 +127,9 @@ export function ImageCell({
         </>
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-muted/20 dark:bg-black">
-          <span className="text-muted-foreground text-sm">Drop image here</span>
+          <span className=" text-sm">
+            <ImagePlus className="h-6 w-6" />
+          </span>
         </div>
       )}
     </div>

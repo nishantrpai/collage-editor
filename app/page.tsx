@@ -190,14 +190,16 @@ export default function CollageMaker() {
     setSelectedCellId(cellId)
   }, [])
 
-  // Add handler for clicks outside the canvas
+  // Remove the handleOutsideClick implementation that unselects cells
   const handleOutsideClick = (e: React.MouseEvent) => {
-    // Check if the click is outside the canvas area
-    const canvasArea = document.querySelector(".collage-canvas-wrapper")
-    if (canvasArea && !canvasArea.contains(e.target as Node)) {
-      setSelectedCellId(null)
-    }
+    // We're removing the auto-unselect behavior
+    // The cell will now only be unselected by clicking the "Done" button
   }
+
+  // Add handler to explicitly unselect cell
+  const handleDoneEditing = useCallback(() => {
+    setSelectedCellId(null);
+  }, []);
 
   const { theme } = useTheme()
 
@@ -291,7 +293,7 @@ export default function CollageMaker() {
                     height: 1000,
                     transform: `scale(${zoom / 100})`,
                     transformOrigin: "top center",
-                    backgroundColor: theme === 'dark' ? '#000000' : '#ffffff',
+                    backgroundColor: backgroundColor, // Use backgroundColor directly
                   }}
                 >
                   <CollageCanvas
@@ -301,7 +303,7 @@ export default function CollageMaker() {
                     onRemoveImage={handleRemoveImage}
                     selectedCellId={selectedCellId}
                     isSaving={isSaving}
-                    backgroundColor={theme === 'dark' ? '#000000' : '#ffffff'}
+                    backgroundColor={backgroundColor} // Use backgroundColor directly
                     isFreeFlow={isFreeFlow}
                     theme={theme}
                   />
@@ -314,7 +316,7 @@ export default function CollageMaker() {
               <div className="border-l p-4 dark:border-gray-800 dark:bg-black">
                 <ImageControls
                   transform={collageState.imageTransforms[selectedCellId] || defaultImageTransform}
-                  backgroundColor={collageState.cellBackgroundColors[selectedCellId] || (theme === 'dark' ? '#000000' : '#ffffff')}
+                  backgroundColor={collageState.cellBackgroundColors[selectedCellId] || backgroundColor}
                   gridPercentage={
                     collageState.gridPercentages[selectedCellId] || { width: 100, height: 100, offsetX: 0, offsetY: 0 }
                   }
@@ -323,6 +325,7 @@ export default function CollageMaker() {
                   onBackgroundColorChange={(color) => updateCellBackgroundColor(selectedCellId, color)}
                   onGridPercentageChange={(percentage) => updateGridPercentage(selectedCellId, percentage)}
                   onZIndexChange={(zIndex) => updateZIndex(selectedCellId, zIndex)}
+                  onDone={handleDoneEditing}
                 />
               </div>
             )}
