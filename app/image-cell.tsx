@@ -54,7 +54,7 @@ export function ImageCell({
     }),
   })
 
-  const defaultBackground = theme === 'dark' ? '#000000' : '#ffffff'
+  const defaultBackground = theme === 'dark' ? '#111' : '#ffffff'
 
   const cellStyle = isFreeFlow
     ? {
