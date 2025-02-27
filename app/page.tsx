@@ -110,8 +110,8 @@ export default function CollageMaker() {
           scale: 4, // Higher scale for better quality
           useCORS: true,
           backgroundColor: theme === 'dark' ? '#000000' : '#ffffff',
-          width: 1000,
-          height: 1000,
+          width: 8000,
+          height: 8000,
         })
         const dataUrl = canvas.toDataURL("image/png", 1.0) // Maximum quality
         const link = document.createElement("a")
@@ -389,7 +389,7 @@ export default function CollageMaker() {
                   value={[canvasSize.width]} 
                   onValueChange={(value) => setCanvasSize(prev => ({ ...prev, width: value[0] }))} 
                   min={500} 
-                  max={2000} 
+                  max={8000} 
                   step={100} 
                 />
               </div>
@@ -399,7 +399,7 @@ export default function CollageMaker() {
                   value={[canvasSize.height]} 
                   onValueChange={(value) => setCanvasSize(prev => ({ ...prev, height: value[0] }))} 
                   min={500} 
-                  max={2000} 
+                  max={8000} 
                   step={100} 
                 />
               </div>
@@ -423,7 +423,13 @@ export default function CollageMaker() {
               onMouseMove={handlePanMove}
               onMouseUp={handlePanEnd}
               onMouseLeave={handlePanEnd}
-              style={{ cursor: isPanning ? 'grab' : 'default' }}
+              style={{ cursor: isPanning ? 'grab' : 'default',
+                  backgroundImage: `
+                    linear-gradient(to right, ${theme == 'dark' ? '#111' : '#eee'} 1px, transparent 1px),
+                    linear-gradient(to bottom, ${theme == 'dark' ? '#111' : '#eee'} 1px, transparent 1px)
+                  `,
+                  backgroundSize: '10px 10px',
+               }}
             >
               <div 
                 className="collage-canvas-wrapper mx-auto"

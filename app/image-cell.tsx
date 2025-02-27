@@ -133,7 +133,7 @@ export function ImageCell({
         <div 
           className="w-full h-full flex items-center justify-center"
           style={{
-            backgroundColor: backgroundColor || defaultBackground, // Use cell-specific background for empty state
+            backgroundColor: defaultBackground, // Use cell-specific background for empty state
           }}
         >
           <span className="text-sm">
