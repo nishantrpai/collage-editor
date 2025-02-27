@@ -58,19 +58,25 @@ export function ImageCell({
 
   const defaultBackground = theme === 'dark' ? '#111' : '#ffffff'
 
+  // Base cell style with grid positioning
   const cellStyle = {
     gridArea: gridArea,
     position: "relative" as const,
     backgroundColor: defaultBackground,
     borderRadius: `${transform?.borderRadius || 0}px`,
     ...(isFreeFlow && {
-      width: `${gridPercentage.width}%`,
-      height: `${gridPercentage.height}%`,
       transform: `translate(${gridPercentage.offsetX}%, ${gridPercentage.offsetY}%)`,
       zIndex: zIndex,
       cursor: "move",
       opacity: isDragging ? 0.5 : 1,
     }),
+  }
+
+  // Create a wrapper div for grid sizing
+  const gridSizeStyle = {
+    width: isFreeFlow ? `${gridPercentage.width}%` : '100%',
+    height: isFreeFlow ? `${gridPercentage.height}%` : '100%',
+    position: 'relative' as const,
   }
 
   const imageContainerRef = React.useRef<HTMLDivElement>(null)
@@ -85,59 +91,67 @@ export function ImageCell({
     <div
       ref={isFreeFlow ? combinedRef : undefined}
       style={cellStyle}
-      className={`overflow-hidden ${isSelected && !isPreview && !isSaving ? "ring-2 ring-primary" : ""}`}
+      className={`overflow-visible ${isSelected && !isPreview && !isSaving ? "ring-2 ring-primary" : ""}`}
       onClick={onClick}
       data-cell-id={cellId}
     >
-      {image ? (
-        <>
-          <div
-            className="w-full h-full relative overflow-hidden"
-            style={{
-              transform: `scale(${transform?.zoom || 1})`,
-              borderRadius: `${transform?.borderRadius || 0}px`,
-              backgroundColor: backgroundColor || defaultBackground, // Use cell-specific background for image container
-            }}
-          >
-            <img
-              src={image}
-              alt="Collage image"
-              className="absolute w-full h-full object-cover"
+      <div style={gridSizeStyle}>
+        {image ? (
+          <>
+            <div
+              className="absolute inset-0 overflow-hidden"
               style={{
-                transform: `translate(${transform?.offsetX || 0}px, ${
-                  transform?.offsetY || 0
-                }px) rotate(${transform?.rotation || 0}deg) scale(${transform?.scale || 1})`,
-                transformOrigin: "center",
-              }}
-              draggable={false}
-            />
-          </div>
-          {!isPreview && !isSaving && isSelected && onRemove && (
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-1 right-1 w-6 h-6"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemove()
+                borderRadius: `${transform?.borderRadius || 0}px`,
+                backgroundColor: backgroundColor || defaultBackground,
               }}
             >
-              <X className="h-3 w-3" />
-            </Button>
-          )}
-        </>
-      ) : (
-        <div 
-          className="w-full h-full flex items-center justify-center"
-          style={{
-            backgroundColor: defaultBackground, // Use cell-specific background for empty state
-          }}
-        >
-          <span className="text-sm">
-            <ImagePlus className="h-6 w-6" />
-          </span>
-        </div>
-      )}
+              <div
+                className="w-full h-full relative"
+                style={{
+                  transform: `scale(${transform?.zoom || 1})`,
+                }}
+              >
+                <img
+                  src={image}
+                  alt="Collage image"
+                  className="absolute w-full h-full object-cover"
+                  style={{
+                    transform: `translate(${transform?.offsetX || 0}px, ${
+                      transform?.offsetY || 0
+                    }px) rotate(${transform?.rotation || 0}deg) scale(${transform?.scale || 1})`,
+                    transformOrigin: "center",
+                  }}
+                  draggable={false}
+                />
+              </div>
+            </div>
+            {!isPreview && !isSaving && isSelected && onRemove && (
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-1 right-1 w-6 h-6"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRemove()
+                }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </>
+        ) : (
+          <div 
+            className="absolute inset-0 flex items-center justify-center"
+            style={{
+              backgroundColor: defaultBackground,
+            }}
+          >
+            <span className="text-sm">
+              <ImagePlus className="h-6 w-6" />
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
