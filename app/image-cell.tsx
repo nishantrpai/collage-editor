@@ -9,6 +9,7 @@ import type { ImageTransform } from "./types"
 
 interface ImageCellProps {
   cellId: string
+  gridArea: string
   image?: string
   transform?: ImageTransform
   backgroundColor?: string
@@ -25,6 +26,7 @@ interface ImageCellProps {
 
 export function ImageCell({
   cellId,
+  gridArea,
   image,
   transform = { zoom: 1, offsetX: 0, offsetY: 0, rotation: 0, scale: 1 },
   backgroundColor,
@@ -56,25 +58,20 @@ export function ImageCell({
 
   const defaultBackground = theme === 'dark' ? '#111' : '#ffffff'
 
-  const cellStyle = isFreeFlow
-    ? {
-        position: "absolute" as const,
-        width: `${gridPercentage.width}%`,
-        height: `${gridPercentage.height}%`,
-        left: `${gridPercentage.offsetX}%`,
-        top: `${gridPercentage.offsetY}%`,
-        zIndex: zIndex,
-        backgroundColor: defaultBackground, // Use default/main background for container
-        cursor: "move",
-        opacity: isDragging ? 0.5 : 1,
-        borderRadius: `${transform?.borderRadius || 0}px`,
-      }
-    : {
-        gridArea: cellId,
-        backgroundColor: defaultBackground, // Use default/main background for container
-        position: "relative" as const,
-        borderRadius: `${transform?.borderRadius || 0}px`,
-      }
+  const cellStyle = {
+    gridArea: gridArea,
+    position: "relative" as const,
+    backgroundColor: defaultBackground,
+    borderRadius: `${transform?.borderRadius || 0}px`,
+    ...(isFreeFlow && {
+      width: `${gridPercentage.width}%`,
+      height: `${gridPercentage.height}%`,
+      transform: `translate(${gridPercentage.offsetX}%, ${gridPercentage.offsetY}%)`,
+      zIndex: zIndex,
+      cursor: "move",
+      opacity: isDragging ? 0.5 : 1,
+    }),
+  }
 
   const imageContainerRef = React.useRef<HTMLDivElement>(null)
 

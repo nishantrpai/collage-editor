@@ -28,13 +28,13 @@ export function CollageCanvas({
   isFreeFlow,
   theme,
 }: CollageCanvasProps) {
-  const gridStyle = isFreeFlow
-    ? { display: "block", position: "relative" as const, width: "100%", height: "100%" }
-    : {
-        display: "grid",
-        gridTemplateAreas: layout.areas,
-        gap: layout.gap ?? 8,
-      }
+  // Always maintain grid layout, even in free flow mode
+  const gridStyle = {
+    display: "grid",
+    gridTemplateAreas: layout.areas,
+    gap: layout.gap ?? 8,
+    position: 'relative' as const,
+  }
 
   // Use the provided backgroundColor directly
   const bgColor = backgroundColor || (theme === 'dark' ? '#000000' : '#ffffff')
@@ -59,10 +59,15 @@ export function CollageCanvas({
           offsetX: 0,
           offsetY: 0,
         }
+
+        // Calculate the initial grid position for free flow mode
+        const gridArea = cellId
+        
         return (
           <ImageCell
             key={index}
             cellId={cellId}
+            gridArea={gridArea}
             image={collageState.images[collageState.cellImageMap[cellId]]}
             transform={collageState.imageTransforms[cellId]}
             backgroundColor={collageState.cellBackgroundColors[cellId] || bgColor}

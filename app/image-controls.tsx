@@ -54,8 +54,8 @@ export function ImageControls({
         <Slider
           value={[transform.offsetX]}
           onValueChange={(value) => onChange({ offsetX: value[0] })}
-          min={-100}
-          max={100}
+          min={-4000}
+          max={400}
           step={1}
         />
       </div>
@@ -64,8 +64,8 @@ export function ImageControls({
         <Slider
           value={[transform.offsetY]}
           onValueChange={(value) => onChange({ offsetY: value[0] })}
-          min={-100}
-          max={100}
+          min={-4000}
+          max={400}
           step={1}
         />
       </div>
