@@ -56,6 +56,9 @@ export default function CollageMaker() {
   const [isSaving, setIsSaving] = useState(false)
   const [isFreeFlow, setIsFreeFlow] = useState(false)
   const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 1000 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     const savedLayouts = localStorage.getItem("customLayouts")
@@ -275,6 +278,24 @@ export default function CollageMaker() {
     setLayoutToEdit(null);
   }
 
+  const handlePanStart = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setDragStart({ x: e.clientX - canvasOffset.x, y: e.clientY - canvasOffset.y })
+    }
+  }
+
+  const handlePanMove = (e: React.MouseEvent) => {
+    if (isPanning && dragStart) {
+      const newX = e.clientX - dragStart.x
+      const newY = e.clientY - dragStart.y
+      setCanvasOffset({ x: newX, y: newY })
+    }
+  }
+
+  const handlePanEnd = () => {
+    setDragStart(null)
+  }
+
   const { theme } = useTheme()
 
   return (
@@ -348,7 +369,14 @@ export default function CollageMaker() {
               <Download className="w-4 h-4" />
             </Button>
             <div className="ml-auto flex items-center gap-4">
-              <Move className="w-4 h-4" />
+              <Button
+                variant={isPanning ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setIsPanning(!isPanning)}
+                className={isPanning ? "bg-accent" : ""}
+              >
+                <Move className="w-4 h-4" />
+              </Button>
               <div className="w-32">
                 <Slider value={[zoom]} onValueChange={(value) => setZoom(value[0])} min={10} max={200} step={1} />
               </div>
@@ -389,8 +417,21 @@ export default function CollageMaker() {
 
           {/* Canvas Area */}
           <div className="flex-1 grid grid-cols-[1fr,300px]">
-            <div className="p-8 overflow-auto bg-muted/20 dark:bg-black">
-              <div className="collage-canvas-wrapper mx-auto">
+            <div 
+              className="p-8 overflow-hidden bg-muted/20 dark:bg-black"
+              onMouseDown={handlePanStart}
+              onMouseMove={handlePanMove}
+              onMouseUp={handlePanEnd}
+              onMouseLeave={handlePanEnd}
+              style={{ cursor: isPanning ? 'grab' : 'default' }}
+            >
+              <div 
+                className="collage-canvas-wrapper mx-auto"
+                style={{
+                  transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
+                  transition: isPanning ? 'none' : 'transform 0.2s',
+                }}
+              >
                 <div
                   className="mx-auto shadow-lg collage-canvas"
                   style={{

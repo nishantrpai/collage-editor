@@ -64,14 +64,16 @@ export function ImageCell({
         left: `${gridPercentage.offsetX}%`,
         top: `${gridPercentage.offsetY}%`,
         zIndex: zIndex,
-        backgroundColor: backgroundColor || defaultBackground,
+        backgroundColor: defaultBackground, // Use default/main background for container
         cursor: "move",
         opacity: isDragging ? 0.5 : 1,
+        borderRadius: `${transform?.borderRadius || 0}px`,
       }
     : {
         gridArea: cellId,
-        backgroundColor: backgroundColor || defaultBackground,
+        backgroundColor: defaultBackground, // Use default/main background for container
         position: "relative" as const,
+        borderRadius: `${transform?.borderRadius || 0}px`,
       }
 
   const imageContainerRef = React.useRef<HTMLDivElement>(null)
@@ -85,10 +87,7 @@ export function ImageCell({
   return (
     <div
       ref={isFreeFlow ? combinedRef : undefined}
-      style={{
-        ...cellStyle,
-        borderRadius: `${transform?.borderRadius || 0}px`,
-      }}
+      style={cellStyle}
       className={`overflow-hidden ${isSelected && !isPreview && !isSaving ? "ring-2 ring-primary" : ""}`}
       onClick={onClick}
       data-cell-id={cellId}
@@ -100,6 +99,7 @@ export function ImageCell({
             style={{
               transform: `scale(${transform?.zoom || 1})`,
               borderRadius: `${transform?.borderRadius || 0}px`,
+              backgroundColor: backgroundColor || defaultBackground, // Use cell-specific background for image container
             }}
           >
             <img
@@ -130,8 +130,13 @@ export function ImageCell({
           )}
         </>
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-muted/20 dark:bg-black">
-          <span className=" text-sm">
+        <div 
+          className="w-full h-full flex items-center justify-center"
+          style={{
+            backgroundColor: backgroundColor || defaultBackground, // Use cell-specific background for empty state
+          }}
+        >
+          <span className="text-sm">
             <ImagePlus className="h-6 w-6" />
           </span>
         </div>
