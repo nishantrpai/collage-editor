@@ -7,11 +7,12 @@ import { HTML5Backend } from "react-dnd-html5-backend"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Upload, Save, Download, Move, Plus } from "lucide-react"
+import { Upload, Save, Download, Move, Plus, Eye, EyeOff, ChevronDown } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { CollageCanvas } from "./collage-canvas"
 import { LayoutSelector } from "./layout-selector"
 import { defaultLayouts } from "./layouts"
@@ -22,8 +23,36 @@ import { AllLayoutsPreview } from "./all-layouts-preview"
 import { ImageSelector } from "./image-selector"
 import { ThemeToggle } from "./theme-toggle"
 import type { Layout, CollageState, ImageTransform } from "./types"
-import { useTheme } from "next-themes"
 import html2canvas from "html2canvas"
+import { useTheme } from "next-themes"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
+// Canvas dimension presets
+const CANVAS_PRESETS = [
+  { name: "Custom", width: 1000, height: 1000 },
+  { name: "Square", width: 1080, height: 1080 },
+  { name: "Golden", width: 1618, height: 1000 },
+  { name: "2x2.5", width: 2000, height: 2500 },
+  { name: "3x5", width: 3000, height: 5000 },
+  { name: "4x6", width: 4000, height: 6000 },
+  { name: "5x7", width: 5000, height: 7000 },
+  { name: "8x10", width: 8000, height: 10000 },
+  { name: "11x14", width: 11000, height: 14000 },
+  { name: "16x9", width: 1600, height: 900 },
+  { name: "1640x624", width: 1640, height: 624 },
+  { name: "800x600", width: 800, height: 600 },
+  { name: "1024x768", width: 1024, height: 768 },
+  { name: "1280x800", width: 1280, height: 800 },
+  { name: "1280x1024", width: 1280, height: 1024 },
+  { name: "640x960", width: 640, height: 960 },
+  { name: "640x1136", width: 640, height: 1136 },
+  { name: "2048x1536", width: 2048, height: 1536 },
+  { name: "1280x720", width: 1280, height: 720 },
+  { name: "1920x1080", width: 1920, height: 1080 },
+  { name: "2560x1600", width: 2560, height: 1600 }
+]
 
 const defaultImageTransform: ImageTransform = {
   zoom: 1,
@@ -52,14 +81,20 @@ export default function CollageMaker() {
     gridPercentages: {},
     zIndexes: {},
   })
-  const [backgroundColor, setBackgroundColor] = useState("#ffffff")
+  const { theme, resolvedTheme } = useTheme()
+  const [backgroundColor, setBackgroundColor] = useState('#fff')
   const [isSaving, setIsSaving] = useState(false)
   const [isFreeFlow, setIsFreeFlow] = useState(false)
   const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 1000 })
   const [isPanning, setIsPanning] = useState(false)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const [canvasPreset, setCanvasPreset] = useState<string>("Custom")
+  const [canvasDimension, setCanvasDimension] = useState({ width: "1000", height: "1000" })
+  const [showLayoutPreview, setShowLayoutPreview] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
 
   useEffect(() => {
     const savedLayouts = localStorage.getItem("customLayouts")
@@ -85,6 +120,26 @@ export default function CollageMaker() {
       }
     }
   }, [deleteLayoutId, layouts]);
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Handle resize to keep canvas centered
+  useEffect(() => {
+    const handleResize = () => {
+      if (containerRef.current) {
+        setContainerSize({
+          width: containerRef.current.offsetWidth,
+          height: containerRef.current.offsetHeight,
+        })
+      }
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -232,6 +287,7 @@ export default function CollageMaker() {
 
     return { x, y, width, height }
   }
+
 
   const updateImageTransform = (cellId: string, transform: Partial<ImageTransform>) => {
     setCollageState((prev) => ({
@@ -404,7 +460,79 @@ export default function CollageMaker() {
     setDragStart(null)
   }
 
-  const { theme } = useTheme()
+  const handleCanvasDimensionChange = (dimension: "width" | "height", value: string) => {
+    setCanvasDimension(prev => ({
+      ...prev,
+      [dimension]: value
+    }))
+
+    // Only update actual canvas size when input is valid
+    if (!isNaN(parseInt(value)) && parseInt(value) > 0) {
+      setCanvasSize(prev => ({
+        ...prev,
+        [dimension]: parseInt(value)
+      }))
+      setCanvasPreset("Custom") // Reset to Custom when manually changing dimensions
+    }
+  }
+
+  const handleCanvasPresetChange = (presetName: string) => {
+    const preset = CANVAS_PRESETS.find(p => p.name === presetName)
+    if (preset) {
+      setCanvasPreset(presetName)
+      setCanvasSize({ width: preset.width, height: preset.height })
+      setCanvasDimension({ 
+        width: preset.width.toString(), 
+        height: preset.height.toString() 
+      })
+    }
+  }
+
+  const toggleLayoutPreview = () => {
+    setShowLayoutPreview(!showLayoutPreview)
+  }
+
+  const handleLayoutSelect = (layout: Layout) => {
+    setSelectedLayout(layout)
+    // You can optionally close the preview after selecting
+    // setShowLayoutPreview(false)
+  }
+
+  // Add a function to handle image deletion
+  const handleDeleteImage = (imageIndex: number) => {
+    // Create a new array without the deleted image
+    const newImages = [...collageState.images]
+    newImages.splice(imageIndex, 1)
+    
+    // Remove references to this image from cell mappings
+    const newCellImageMap = { ...collageState.cellImageMap }
+    
+    // For each cell that had this image or an image with a higher index
+    Object.keys(newCellImageMap).forEach((cellId) => {
+      if (newCellImageMap[cellId] === imageIndex) {
+        // Remove the mapping for cells that had this image
+        delete newCellImageMap[cellId]
+      } else if (newCellImageMap[cellId] > imageIndex) {
+        // Decrement the index for cells that had images with higher indices
+        newCellImageMap[cellId] = newCellImageMap[cellId] - 1
+      }
+    })
+    
+    // Update the collage state
+    setCollageState((prev) => ({
+      ...prev,
+      images: newImages,
+      cellImageMap: newCellImageMap,
+    }))
+  }
+
+  // Don't render until mounted to prevent theme mismatch
+  if (!mounted) {
+    return null
+  }
+
+  // Use resolvedTheme instead of theme for more reliable detection
+  const currentTheme = resolvedTheme || 'light'
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -412,7 +540,7 @@ export default function CollageMaker() {
         {/* Left Sidebar */}
         <div className="w-64 border-r bg-card dark:bg-black dark:border-gray-800">
           <div className="p-4 flex justify-between items-center">
-            <span className="font-semibold text-foreground dark:text-gray-200">Collage Layouts</span>
+            <span className="font-semibold text-foreground dark:text-gray-200">Montage</span>
             <Button variant="ghost" size="icon" onClick={() => setShowAddLayout(true)}>
               <Plus className="h-4 w-4" />
             </Button>
@@ -447,10 +575,15 @@ export default function CollageMaker() {
                   backgroundColor={backgroundColor}
                   onDeleteLayout={handleDeleteLayout}
                   onEditLayout={handleEditLayout}
+                  onSelect={setSelectedLayout}
                 />
               </TabsContent>
             </Tabs>
-            <ImageSelector images={collageState.images} onSelect={handleImageSelect} />
+            <ImageSelector 
+              images={collageState.images} 
+              onSelect={handleImageSelect} 
+              onDelete={handleDeleteImage} // Add the delete handler
+            />
           </ScrollArea>
         </div>
 
@@ -473,8 +606,8 @@ export default function CollageMaker() {
             <Button variant="outline" onClick={handleSave}>
               <Save className="w-4 h-4" />
             </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4" />
+            <Button variant="outline" onClick={toggleLayoutPreview}>
+              {showLayoutPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </Button>
             <div className="ml-auto flex items-center gap-4">
               <Button
@@ -491,27 +624,51 @@ export default function CollageMaker() {
               <span className="text-sm">{zoom}%</span>
             </div>
             <div className="flex items-center gap-4">
-              <Label>Canvas:</Label>
-              <div className="w-32">
-                <Slider 
-                  value={[canvasSize.width]} 
-                  onValueChange={(value) => setCanvasSize(prev => ({ ...prev, width: value[0] }))} 
-                  min={500} 
-                  max={8000} 
-                  step={100} 
+              <Label className="mr-2">Canvas:</Label>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-8 font-normal">
+                    {canvasPreset} <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-y-auto">
+                  <DropdownMenuLabel>Canvas Size Presets</DropdownMenuLabel>
+                  {CANVAS_PRESETS.map((preset) => (
+                    <DropdownMenuItem
+                      key={preset.name}
+                      onClick={() => handleCanvasPresetChange(preset.name)}
+                      className={canvasPreset === preset.name ? "bg-accent" : ""}
+                    >
+                      {preset.name} ({preset.width}×{preset.height})
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <div className="flex items-center gap-2">
+                <Input
+                  className="w-20 h-8 text-right"
+                  value={canvasDimension.width}
+                  onChange={(e) => handleCanvasDimensionChange("width", e.target.value)}
+                  onBlur={() => {
+                    if (canvasDimension.width === "" || parseInt(canvasDimension.width) <= 0) {
+                      setCanvasDimension(prev => ({ ...prev, width: canvasSize.width.toString() }))
+                    }
+                  }}
+                />
+                <span>×</span>
+                <Input
+                  className="w-20 h-8 text-right"
+                  value={canvasDimension.height}
+                  onChange={(e) => handleCanvasDimensionChange("height", e.target.value)}
+                  onBlur={() => {
+                    if (canvasDimension.height === "" || parseInt(canvasDimension.height) <= 0) {
+                      setCanvasDimension(prev => ({ ...prev, height: canvasSize.height.toString() }))
+                    }
+                  }}
                 />
               </div>
-              <span className="text-sm">{canvasSize.width}px</span>
-              <div className="w-32">
-                <Slider 
-                  value={[canvasSize.height]} 
-                  onValueChange={(value) => setCanvasSize(prev => ({ ...prev, height: value[0] }))} 
-                  min={500} 
-                  max={8000} 
-                  step={100} 
-                />
-              </div>
-              <span className="text-sm">{canvasSize.height}px</span>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox
@@ -526,6 +683,7 @@ export default function CollageMaker() {
           {/* Canvas Area */}
           <div className="flex-1 grid grid-cols-[1fr,300px]">
             <div 
+              ref={containerRef}
               className="p-8 overflow-hidden bg-muted/20 dark:bg-black"
               onMouseDown={handlePanStart}
               onMouseMove={handlePanMove}
@@ -533,17 +691,21 @@ export default function CollageMaker() {
               onMouseLeave={handlePanEnd}
               style={{ cursor: isPanning ? 'grab' : 'default',
                   backgroundImage: `
-                    linear-gradient(to right, ${theme == 'dark' ? '#111' : '#eee'} 1px, transparent 1px),
-                    linear-gradient(to bottom, ${theme == 'dark' ? '#111' : '#eee'} 1px, transparent 1px)
+                    linear-gradient(to right, ${currentTheme == 'dark' ? '#111' : '#eee'} 1px, transparent 1px),
+                    linear-gradient(to bottom, ${currentTheme == 'dark' ? '#111' : '#eee'} 1px, transparent 1px)
                   `,
                   backgroundSize: '10px 10px',
-               }}
+              }}
             >
               <div 
                 className="collage-canvas-wrapper mx-auto"
                 style={{
                   transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
                   transition: isPanning ? 'none' : 'transform 0.2s',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%'
                 }}
               >
                 <div
@@ -552,21 +714,61 @@ export default function CollageMaker() {
                     width: canvasSize.width,
                     height: canvasSize.height,
                     transform: `scale(${zoom / 100})`,
-                    transformOrigin: "top center",
-                    backgroundColor: backgroundColor, // Use backgroundColor directly
+                    transformOrigin: "center center", // Change to center center for better centering
+                    backgroundColor: backgroundColor,
                   }}
                 >
-                  <CollageCanvas
-                    layout={selectedLayout}
-                    collageState={collageState}
-                    onCellSelect={handleCellClick}
-                    onRemoveImage={handleRemoveImage}
-                    selectedCellId={selectedCellId}
-                    isSaving={isSaving}
-                    backgroundColor={backgroundColor} // Use backgroundColor directly
-                    isFreeFlow={isFreeFlow}
-                    theme={theme}
-                  />
+                  {showLayoutPreview ? (
+                    <div className="w-full h-full p-4 flex flex-col items-center justify-center">
+                      <h3 className="text-lg font-bold mb-4">Layout Preview</h3>
+                      <div className="grid grid-cols-3 gap-4 max-w-3xl">
+                        {layouts.map((layout) => (
+                          <div 
+                            key={layout.id} 
+                            className={`aspect-square border rounded cursor-pointer ${
+                              selectedLayout.id === layout.id ? "border-primary border-2" : "border-border"
+                            }`}
+                            onClick={() => handleLayoutSelect(layout)}
+                          >
+                            <div
+                              className="w-full h-full grid"
+                              style={{
+                                gridTemplateAreas: layout.areas,
+                                gap: `${layout.gap || 8}px`,
+                              }}
+                            >
+                              {layout.cells.map((cell, i) => (
+                                <div
+                                  key={i}
+                                  className="bg-accent/50 dark:bg-accent/30"
+                                  style={{ gridArea: cell.id }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <Button 
+                        className="mt-4" 
+                        onClick={toggleLayoutPreview}
+                        variant="secondary"
+                      >
+                        Return to Editor
+                      </Button>
+                    </div>
+                  ) : (
+                    <CollageCanvas
+                      layout={selectedLayout}
+                      collageState={collageState}
+                      onCellSelect={handleCellClick}
+                      onRemoveImage={handleRemoveImage}
+                      selectedCellId={selectedCellId}
+                      isSaving={isSaving}
+                      backgroundColor={backgroundColor}
+                      isFreeFlow={isFreeFlow}
+                      theme={currentTheme}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -608,10 +810,6 @@ export default function CollageMaker() {
           layoutName={layoutToDelete.name} 
         />
       )}
-      <canvas
-        ref={canvasRef}
-        style={{ display: 'none' }}
-      />
     </DndProvider>
   )
 }
