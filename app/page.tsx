@@ -390,6 +390,33 @@ export default function CollageMaker() {
     // setShowLayoutPreview(false)
   }
 
+  // Add a function to handle image deletion
+  const handleDeleteImage = (imageIndex: number) => {
+    // Create a new array without the deleted image
+    const newImages = [...collageState.images]
+    newImages.splice(imageIndex, 1)
+    
+    // Remove references to this image from cell mappings
+    const newCellImageMap = { ...collageState.cellImageMap }
+    
+    // For each cell that had this image or an image with a higher index
+    Object.keys(newCellImageMap).forEach((cellId) => {
+      if (newCellImageMap[cellId] === imageIndex) {
+        // Remove the mapping for cells that had this image
+        delete newCellImageMap[cellId]
+      } else if (newCellImageMap[cellId] > imageIndex) {
+        // Decrement the index for cells that had images with higher indices
+        newCellImageMap[cellId] = newCellImageMap[cellId] - 1
+      }
+    })
+    
+    // Update the collage state
+    setCollageState((prev) => ({
+      ...prev,
+      images: newImages,
+      cellImageMap: newCellImageMap,
+    }))
+  }
 
   // Don't render until mounted to prevent theme mismatch
   if (!mounted) {
@@ -444,7 +471,11 @@ export default function CollageMaker() {
                 />
               </TabsContent>
             </Tabs>
-            <ImageSelector images={collageState.images} onSelect={handleImageSelect} />
+            <ImageSelector 
+              images={collageState.images} 
+              onSelect={handleImageSelect} 
+              onDelete={handleDeleteImage} // Add the delete handler
+            />
           </ScrollArea>
         </div>
 
