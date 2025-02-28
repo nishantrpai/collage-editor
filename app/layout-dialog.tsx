@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Info } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea" 
+import { Slider } from "@/components/ui/slider"
 import type { Layout } from "./types"
-import { Textarea } from "@/components/ui/textarea"
 
 interface LayoutDialogProps {
   open: boolean
@@ -22,58 +23,133 @@ export function LayoutDialog({
   onSave,
   layoutToEdit
 }: LayoutDialogProps) {
+  // Default layout if creating a new one
+  const defaultAreas = `"a a b"
+"a a c"
+"d e c"`
+
+  // State
   const [name, setName] = useState("")
-  const [areas, setAreas] = useState("")
+  const [areas, setAreas] = useState(defaultAreas)
+  const [gap, setGap] = useState(8)
+  const [previewAreas, setPreviewAreas] = useState<string>("")
   const [cells, setCells] = useState<{ id: string }[]>([])
-  const [isValidGrid, setIsValidGrid] = useState(false)
+  const [isValid, setIsValid] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Reset form when dialog opens/closes or layoutToEdit changes
+  // Reset form when dialog opens or layoutToEdit changes
   useEffect(() => {
-    if (layoutToEdit) {
-      setName(layoutToEdit.name)
-      setAreas(layoutToEdit.areas)
-      setCells(layoutToEdit.cells)
-      setIsValidGrid(true)
-    } else {
-      setName("")
-      setAreas("")
-      setCells([])
-      setIsValidGrid(false)
+    if (open) {
+      if (layoutToEdit) {
+        // Editing an existing layout
+        setName(layoutToEdit.name)
+        setAreas(layoutToEdit.areas)
+        setGap(layoutToEdit.gap || 8)
+        setPreviewAreas(layoutToEdit.areas)
+        setCells(layoutToEdit.cells)
+        setIsValid(true)
+        setError(null)
+      } else {
+        // Creating a new layout
+        setName("New Layout")
+        setAreas(defaultAreas)
+        setGap(8)
+        validateGrid(defaultAreas) // Initial validation for default areas
+        setError(null)
+      }
     }
-  }, [layoutToEdit, open])
+  }, [open, layoutToEdit])
 
-  const validateGrid = (areas: string) => {
+  // Validate the grid areas format
+  const validateGrid = (input: string) => {
+    if (!input.trim()) {
+      setError("Grid areas cannot be empty")
+      setIsValid(false)
+      setCells([])
+      return false
+    }
+
     try {
-      const rows = areas.split("'").filter((row) => row.trim())
-      if (rows.length === 0) return false
+      // Remove quotes and trim whitespace
+      const rows = input.split('\n')
+        .map(row => row.replace(/["']/g, '').trim())
+        .filter(row => row.length > 0)
 
-      const width = rows[0].trim().split(/\s+/).length
-      return rows.every((row) => row.trim().split(/\s+/).length === width)
-    } catch {
+      if (rows.length === 0) {
+        setError("Grid must have at least one row")
+        setIsValid(false)
+        setCells([])
+        return false
+      }
+
+      // Check that all rows have the same number of cells
+      const firstRowCellCount = rows[0].split(/\s+/).length
+      const allRowsSameWidth = rows.every(row => row.split(/\s+/).length === firstRowCellCount)
+
+      if (!allRowsSameWidth) {
+        setError("All rows must have the same number of columns")
+        setIsValid(false)
+        setCells([])
+        return false
+      }
+
+      // Extract unique cell IDs
+      const uniqueCells = new Set<string>()
+      rows.forEach(row => {
+        row.split(/\s+/).forEach(cellId => {
+          uniqueCells.add(cellId)
+        })
+      })
+
+      // Update state with the valid grid
+      setPreviewAreas(input)
+      setCells(Array.from(uniqueCells).map(id => ({ id })))
+      setIsValid(true)
+      setError(null)
+      return true
+    } catch (e) {
+      setError("Invalid grid format")
+      setIsValid(false)
+      setCells([])
       return false
     }
   }
 
   const handleAreasChange = (value: string) => {
     setAreas(value)
-    const valid = validateGrid(value)
-    setIsValidGrid(valid)
-    if (valid) {
-      const uniqueCells = Array.from(new Set(value.match(/[a-zA-Z0-9_]+/g)))
-      setCells(uniqueCells.map((id) => ({ id })))
+    validateGrid(value)
+  }
+
+  const handleNameChange = (value: string) => {
+    setName(value)
+    if (!value.trim()) {
+      setError("Name is required")
+      setIsValid(false)
+    } else if (error === "Name is required") {
+      if (isValid) {
+        setError(null)
+      }
     }
   }
 
   const handleSave = () => {
-    if (!isValidGrid) return
-    const layout: Layout = {
+    if (!isValid || !name.trim()) {
+      if (!name.trim()) {
+        setError("Name is required")
+      }
+      return
+    }
+
+    const newLayout: Layout = {
       id: layoutToEdit?.id || crypto.randomUUID(),
       name,
       areas,
       cells,
+      gap,
       isCustom: true,
     }
-    onSave(layout)
+
+    onSave(newLayout)
     onOpenChange(false)
   }
 
@@ -86,8 +162,13 @@ export function LayoutDialog({
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor="name">Layout Name</Label>
+              <Input 
+                id="name" 
+                value={name} 
+                onChange={(e) => handleNameChange(e.target.value)} 
+                placeholder="My Custom Layout"
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="areas">Grid Areas</Label>
@@ -95,40 +176,59 @@ export function LayoutDialog({
                 id="areas"
                 value={areas}
                 onChange={(e) => handleAreasChange(e.target.value)}
-                className="font-mono"
+                className="font-mono h-40"
+                placeholder={`"a a b"\n"a a c"\n"d e c"`}
               />
             </div>
+            <div className="grid gap-2">
+              <Label>Gap Size: {gap}px</Label>
+              <Slider 
+                value={[gap]} 
+                onValueChange={value => setGap(value[0])} 
+                min={0} 
+                max={20} 
+                step={1} 
+              />
+            </div>
+            {error && (
+              <div className="text-sm text-destructive font-medium mt-2">
+                {error}
+              </div>
+            )}
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Info className="w-4 h-4" />
                 <span>Instructions</span>
               </div>
               <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• Use single quotes for each row</li>
+                <li>• Use double quotes for each row</li>
                 <li>• Separate cells with spaces</li>
                 <li>• Use same cell name for spanning</li>
                 <li>• Example:</li>
-                <li className="font-mono">{'a a b'}</li>
-                <li className="font-mono">{'a a c'}</li>
+                <li className="font-mono">{"\"a a b\""}</li>
+                <li className="font-mono">{"\"a a c\""}</li>
               </ul>
             </div>
           </div>
           <div>
             <Label>Preview</Label>
             <div className="mt-2 border rounded aspect-square p-4 bg-muted/20">
-              {isValidGrid && (
+              {isValid && previewAreas && (
                 <div
-                  className="w-full h-full grid gap-2"
+                  className="w-full h-full grid"
                   style={{
-                    gridTemplateAreas: areas,
+                    gridTemplateAreas: previewAreas,
+                    gap: `${gap}px`,
                   }}
                 >
                   {cells.map((cell) => (
                     <div
                       key={cell.id}
-                      className="bg-accent dark:bg-gray-700"
+                      className="bg-accent dark:bg-gray-700 flex items-center justify-center text-xs"
                       style={{ gridArea: cell.id }}
-                    />
+                    >
+                      {cell.id}
+                    </div>
                   ))}
                 </div>
               )}
@@ -139,7 +239,7 @@ export function LayoutDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!isValidGrid || !name}>
+          <Button onClick={handleSave} disabled={!isValid || !name.trim()}>
             {layoutToEdit ? 'Save Changes' : 'Add Layout'}
           </Button>
         </div>
