@@ -78,6 +78,7 @@ export function ImageCell({
     width: isFreeFlow ? `${gridPercentage.width}%` : '100%',
     height: isFreeFlow ? `${gridPercentage.height}%` : '100%',
     position: 'relative' as const,
+    overflow: 'hidden',
   }
 
   const imageContainerRef = React.useRef<HTMLDivElement>(null)
@@ -86,6 +87,28 @@ export function ImageCell({
     drag(el)
     drop(el)
     imageContainerRef.current = el
+  }
+
+  // Calculate background image transformations
+  const getImageStyle = () => {
+    if (!image) return {}
+    
+    // Calculate background-size based on scale and zoom
+    const size = `${transform.scale * 100}%`
+    
+    // Calculate background-position based on offsets
+    // Convert pixel offsets to percentages for better responsiveness
+    const posX = 50 + (transform.offsetX / 2) // Center + offset
+    const posY = 50 + (transform.offsetY / 2) // Center + offset
+    
+    return {
+      backgroundImage: `url(${image})`,
+      backgroundSize: `${size}`,
+      backgroundPosition: `${posX}% ${posY}%`,
+      backgroundRepeat: 'no-repeat',
+      transform: `scale(${transform.zoom}) rotate(${transform.rotation}deg)`,
+      transformOrigin: 'center',
+    }
   }
 
   return (
@@ -100,45 +123,14 @@ export function ImageCell({
         {image ? (
           <>
             <div
-              className="absolute inset-0 overflow-hidden"
+              className="absolute inset-0"
               style={{
                 borderRadius: `${transform?.borderRadius || 0}px`,
-                backgroundColor: cellBackground, // Apply the correct background color here
+                backgroundColor: cellBackground,
+                overflow: 'hidden', // Move overflow to this level, not on the zoom container
+                ...getImageStyle(),
               }}
-            >
-              {/* Main fix: Added parent container with transform-origin set to center */}
-              <div
-                className="w-full h-full"
-                style={{
-                  transformOrigin: "center",
-                  position: "relative",
-                  overflow: "hidden"
-                }}
-              >
-                <div
-                  className="w-full h-full"
-                  style={{
-                    transform: `scale(${transform?.zoom || 1})`,
-                    transformOrigin: "center",
-                    position: "relative",
-                    overflow: "visible"
-                  }}
-                >
-                  <img
-                    src={image}
-                    alt="Collage image"
-                    className="absolute w-full h-full object-cover"
-                    style={{
-                      transform: `translate(${transform?.offsetX || 0}px, ${
-                        transform?.offsetY || 0
-                      }px) rotate(${transform?.rotation || 0}deg) scale(${transform?.scale || 1})`,
-                      transformOrigin: "center",
-                    }}
-                    draggable={false}
-                  />
-                </div>
-              </div>
-            </div>
+            />
             {!isPreview && !isSaving && isSelected && onRemove && (
               <Button
                 variant="destructive"
@@ -155,12 +147,10 @@ export function ImageCell({
           </>
         ) : (
           <div 
-          // black font
-          // make background opacity 0.5
             className="absolute inset-0 flex items-center justify-center text-black bg-opacity-50"
-            // style={{
-            //   backgroundColor: cellBackground, // Apply the correct background color here too
-            // }}
+            style={{
+              backgroundColor: cellBackground,
+            }}
           >
             <span className="text-sm">
               <ImagePlus className="h-6 w-6" />

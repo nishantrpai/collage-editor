@@ -45,7 +45,7 @@ export function ImageControls({
           value={[transform.zoom * 100]}
           onValueChange={(value) => onChange({ zoom: value[0] / 100 })}
           min={10}
-          max={200}
+          max={500}
           step={1}
         />
       </div>
