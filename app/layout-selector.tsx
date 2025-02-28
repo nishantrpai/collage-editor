@@ -47,7 +47,7 @@ export function LayoutSelector({
           >
             <button
               className={cn(
-                "p-2 border rounded hover:bg-accent transition-colors dark:border-gray-700 dark:hover:bg-gray-700 w-full",
+                "p-2 border rounded cursor-pointer hover:bg-accent transition-colors dark:border-gray-700 dark:hover:bg-gray-700 w-full",
                 selected.id === layout.id && "border-primary bg-accent dark:border-primary dark:bg-gray-600",
               )}
               onClick={() => onSelect(layout)}

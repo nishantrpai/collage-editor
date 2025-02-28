@@ -56,13 +56,14 @@ export function ImageCell({
     }),
   })
 
-  const defaultBackground = theme === 'dark' ? '#111' : '#ffffff'
+  const defaultBackground = theme === 'dark' ? '#000000' : '#ffffff'
+  const cellBackground = backgroundColor || defaultBackground
 
   // Base cell style with grid positioning
   const cellStyle = {
     gridArea: gridArea,
     position: "relative" as const,
-    backgroundColor: defaultBackground,
+    backgroundColor: cellBackground, // Use the cell-specific background
     borderRadius: `${transform?.borderRadius || 0}px`,
     ...(isFreeFlow && {
       transform: `translate(${gridPercentage.offsetX}%, ${gridPercentage.offsetY}%)`,
@@ -102,27 +103,40 @@ export function ImageCell({
               className="absolute inset-0 overflow-hidden"
               style={{
                 borderRadius: `${transform?.borderRadius || 0}px`,
-                backgroundColor: backgroundColor || defaultBackground,
+                backgroundColor: cellBackground, // Apply the correct background color here
               }}
             >
+              {/* Main fix: Added parent container with transform-origin set to center */}
               <div
-                className="w-full h-full relative"
+                className="w-full h-full"
                 style={{
-                  transform: `scale(${transform?.zoom || 1})`,
+                  transformOrigin: "center",
+                  position: "relative",
+                  overflow: "hidden"
                 }}
               >
-                <img
-                  src={image}
-                  alt="Collage image"
-                  className="absolute w-full h-full object-cover"
+                <div
+                  className="w-full h-full"
                   style={{
-                    transform: `translate(${transform?.offsetX || 0}px, ${
-                      transform?.offsetY || 0
-                    }px) rotate(${transform?.rotation || 0}deg) scale(${transform?.scale || 1})`,
+                    transform: `scale(${transform?.zoom || 1})`,
                     transformOrigin: "center",
+                    position: "relative",
+                    overflow: "visible"
                   }}
-                  draggable={false}
-                />
+                >
+                  <img
+                    src={image}
+                    alt="Collage image"
+                    className="absolute w-full h-full object-cover"
+                    style={{
+                      transform: `translate(${transform?.offsetX || 0}px, ${
+                        transform?.offsetY || 0
+                      }px) rotate(${transform?.rotation || 0}deg) scale(${transform?.scale || 1})`,
+                      transformOrigin: "center",
+                    }}
+                    draggable={false}
+                  />
+                </div>
               </div>
             </div>
             {!isPreview && !isSaving && isSelected && onRemove && (
@@ -141,10 +155,12 @@ export function ImageCell({
           </>
         ) : (
           <div 
-            className="absolute inset-0 flex items-center justify-center"
-            style={{
-              backgroundColor: defaultBackground,
-            }}
+          // black font
+          // make background opacity 0.5
+            className="absolute inset-0 flex items-center justify-center text-black bg-opacity-50"
+            // style={{
+            //   backgroundColor: cellBackground, // Apply the correct background color here too
+            // }}
           >
             <span className="text-sm">
               <ImagePlus className="h-6 w-6" />
