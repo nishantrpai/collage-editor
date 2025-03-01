@@ -103,7 +103,7 @@ export function ImageCell({
     
     return {
       backgroundImage: `url(${image})`,
-      backgroundSize: `${size}`,
+      backgroundSize: `cover`,
       backgroundPosition: `${posX}% ${posY}%`,
       backgroundRepeat: 'no-repeat',
       transform: `scale(${transform.zoom}) rotate(${transform.rotation}deg)`,
