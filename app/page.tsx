@@ -28,6 +28,7 @@ import { useTheme } from "next-themes"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { openDB } from 'idb'
 
 // Canvas dimension presets
 const CANVAS_PRESETS = [
@@ -98,17 +99,177 @@ export default function CollageMaker() {
 
   useEffect(() => {
     const savedLayouts = localStorage.getItem("customLayouts")
-    const savedState = localStorage.getItem("collageState")
-
+    // Only load layout structure from localStorage
     if (savedLayouts) {
       const customLayouts = JSON.parse(savedLayouts)
       setLayouts([...defaultLayouts, ...customLayouts])
     }
 
-    if (savedState) {
-      setCollageState(JSON.parse(savedState))
+    // Set up IndexedDB for media storage
+    const loadMediaFromIndexedDB = async () => {
+      try {
+        const db = await openDB('collageDB', 1, {
+          upgrade(db) {
+            // Create object store for media if it doesn't exist
+            if (!db.objectStoreNames.contains('media')) {
+              db.createObjectStore('media', { keyPath: 'id' });
+            }
+          },
+        });
+
+        // Load media from IndexedDB
+        const media = await db.getAll('media');
+        
+        if (media && media.length > 0) {
+          // Load the media data
+          const mediaItems = media.map(item => ({
+            type: item.type,
+            url: item.dataUrl
+          }));
+
+          // Load cell mappings from localStorage
+          const savedState = localStorage.getItem("collageState");
+          if (savedState) {
+            const parsedState = JSON.parse(savedState);
+            
+            // Merge the loaded media with the cell mappings
+            setCollageState({
+              ...parsedState,
+              media: mediaItems,
+            });
+          } else {
+            // Just set the media if no other state exists
+            setCollageState(prev => ({
+              ...prev,
+              media: mediaItems,
+            }));
+          }
+        } else {
+          // If no media in IndexedDB, try legacy localStorage approach
+          const savedState = localStorage.getItem("collageState");
+          if (savedState) {
+            setCollageState(JSON.parse(savedState));
+          }
+        }
+      } catch (error) {
+        console.error("Error loading from IndexedDB:", error);
+        // Fallback to localStorage
+        const savedState = localStorage.getItem("collageState");
+        if (savedState) {
+          setCollageState(JSON.parse(savedState));
+        }
+      }
+    };
+
+    loadMediaFromIndexedDB();
+
+    // Add event listener to clear IndexedDB on page refresh/close
+    const handleBeforeUnload = () => {
+      // Save non-media state to localStorage before unloading
+      const stateToSave = {
+        ...collageState,
+        media: [] // Don't save media to localStorage
+      };
+      localStorage.setItem("collageState", JSON.stringify(stateToSave));
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
+  // Add function to save to IndexedDB
+  const saveToIndexedDB = async (mediaItems) => {
+    try {
+      const db = await openDB('collageDB', 1);
+      const tx = db.transaction('media', 'readwrite');
+      const store = tx.objectStore('media');
+      
+      // Clear existing entries
+      await store.clear();
+      
+      // Add new entries
+      for (let i = 0; i < mediaItems.length; i++) {
+        const item = mediaItems[i];
+        await store.add({
+          id: i,
+          type: item.type,
+          dataUrl: item.url
+        });
+      }
+      
+      await tx.done;
+    } catch (error) {
+      console.error("Error saving to IndexedDB:", error);
     }
-  }, [])
+  };
+
+  // Modified file upload handler to use IndexedDB
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const result = reader.result as string
+          setCollageState((prev) => {
+            const updatedState = {
+              ...prev,
+              media: [
+                ...prev.media,
+                {
+                  type: file.type.startsWith("image/") ? "image" : "video",
+                  url: result
+                }
+              ],
+            };
+            
+            // Save media to IndexedDB after state update
+            saveToIndexedDB(updatedState.media);
+            
+            return updatedState;
+          });
+        }
+        reader.readAsDataURL(file)
+      })
+    }
+  }
+
+  // Modified delete media handler to update IndexedDB
+  const handleDeleteMedia = (mediaIndex: number) => {
+    // Create a new array without the deleted media item
+    const newMedia = [...collageState.media]
+    newMedia.splice(mediaIndex, 1)
+    
+    // Remove references to this media from cell mappings
+    const newCellMediaMap = { ...collageState.cellMediaMap }
+    
+    // For each cell that had this media or a media with a higher index
+    Object.keys(newCellMediaMap).forEach((cellId) => {
+      if (newCellMediaMap[cellId] === mediaIndex) {
+        // Remove the mapping for cells that had this media
+        delete newCellMediaMap[cellId]
+      } else if (newCellMediaMap[cellId] > mediaIndex) {
+        // Decrement the index for cells that had media with higher indices
+        newCellMediaMap[cellId] = newCellMediaMap[cellId] - 1
+      }
+    })
+    
+    // Update the collage state
+    setCollageState((prev) => {
+      const updatedState = {
+        ...prev,
+        media: newMedia,
+        cellMediaMap: newCellMediaMap,
+      };
+      
+      // Update IndexedDB after state change
+      saveToIndexedDB(newMedia);
+      
+      return updatedState;
+    });
+  }
 
   useEffect(() => {
     // Find the layout to delete when deleteLayoutId changes
@@ -140,29 +301,6 @@ export default function CollageMaker() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files) {
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const result = reader.result as string
-          setCollageState((prev) => ({
-            ...prev,
-            media: [
-              ...prev.media,
-              {
-                type: file.type.startsWith("image/") ? "image" : "video",
-                url: result
-              }
-            ],
-          }))
-        }
-        reader.readAsDataURL(file)
-      })
-    }
-  }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -256,83 +394,127 @@ export default function CollageMaker() {
 
   const saveAsVideo = async () => {
     // Notify user we're preparing the video
-    alert("Preparing video download. This may take a moment...")
+    alert("Preparing high-quality video. This may take a moment...");
     
     try {
-      // We'll need to use a canvas-based video recording approach
-      const canvasElement = document.querySelector(".collage-canvas") as HTMLElement
+      const canvasElement = document.querySelector(".collage-canvas") as HTMLElement;
       if (!canvasElement) {
-        throw new Error("Could not find canvas element")
+        throw new Error("Could not find canvas element");
       }
       
-      // Create a canvas for recording
-      const canvas = document.createElement('canvas')
-      canvas.width = canvasSize.width
-      canvas.height = canvasSize.height
-      const ctx = canvas.getContext('2d')
+      // Create an offscreen canvas with the exact dimensions of the collage
+      const offscreenCanvas = document.createElement('canvas');
+      offscreenCanvas.width = canvasSize.width;
+      offscreenCanvas.height = canvasSize.height;
+      const ctx = offscreenCanvas.getContext('2d', { alpha: false });
       if (!ctx) {
-        throw new Error("Could not get canvas context")
+        throw new Error("Could not get canvas context");
       }
       
-      // Create a stream from the canvas
-      const stream = canvas.captureStream(60) // 30 FPS
+      // Set higher quality encoding options
+      const options = {
+        mimeType: 'video/webm; codecs=vp9',
+        videoBitsPerSecond: 20000000, // 20 Mbps for higher quality
+      };
       
-      // Create recorder
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 8000000 // 5 Mbps
-      })
+      // Verify browser support for selected mime type
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options.mimeType = 'video/webm; codecs=vp8';
+        
+        // If vp8 is not supported either, fall back to default
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          delete options.mimeType;
+        }
+      }
       
-      const chunks: Blob[] = []
-      recorder.ondataavailable = e => chunks.push(e.data)
+      // Create a stream from the canvas with higher framerate
+      const stream = offscreenCanvas.captureStream(60); // 60 FPS for smoother video
+      
+      // Create recorder with high quality settings
+      const recorder = new MediaRecorder(stream, options);
+      
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = e => chunks.push(e.data);
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `collage-video-${Date.now()}.webm`
-        a.click()
-        URL.revokeObjectURL(url)
-      }
+        const blob = new Blob(chunks, { type: options.mimeType || 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `collage-video-${Date.now()}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      };
       
       // Start recording
-      recorder.start()
+      recorder.start();
       
-      // Record for 5 seconds
-      const duration = 5000
-      const startTime = performance.now()
+      // Create a clone of the canvas for rendering
+      const clone = canvasElement.cloneNode(true) as HTMLElement;
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.width = `${canvasSize.width}px`;
+      clone.style.height = `${canvasSize.height}px`;
+      clone.style.transform = 'none'; // Remove scaling
+      clone.style.backgroundColor = backgroundColor;
+      document.body.appendChild(clone);
       
-      // Animation frame drawing function
-      const draw = () => {
-        // Fill background
-        ctx.fillStyle = backgroundColor
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        
-        // Render the canvas content using html2canvas once per frame
-        html2canvas(canvasElement, {
+      // Function to render a single frame with best quality
+      const renderFrame = async () => {
+        // Use html2canvas with optimized settings
+        const renderedCanvas = await html2canvas(clone, {
           backgroundColor: backgroundColor,
           width: canvasSize.width,
           height: canvasSize.height,
-          scale: 1,
+          scale: 1, // Match exactly 1:1
           useCORS: true,
           allowTaint: true,
-        }).then(renderedCanvas => {
-          ctx.drawImage(renderedCanvas, 0, 0, canvas.width, canvas.height)
-          
-          const elapsed = performance.now() - startTime
-          if (elapsed < duration) {
-            requestAnimationFrame(draw)
-          } else {
-            // Stop recording after duration
-            recorder.stop()
-          }
-        })
-      }
+          logging: false,
+          imageTimeout: 0,
+          removeContainer: false, // Don't remove the temporary container
+        });
+        
+        // Draw to our recording canvas
+        ctx.drawImage(renderedCanvas, 0, 0);
+      };
       
-      draw()
+      // Record for 5 seconds at 60fps
+      const duration = 5000;
+      const frameInterval = 1000 / 30; // ~16.7ms per frame
+      const startTime = performance.now();
+      let lastFrameTime = startTime;
+      
+      // Better frame rendering loop with timing control
+      const renderLoop = async () => {
+        const now = performance.now();
+        const elapsed = now - startTime;
+        
+        // Only render a new frame if enough time has passed
+        if (now - lastFrameTime >= frameInterval) {
+          await renderFrame();
+          lastFrameTime = now;
+        }
+        
+        if (elapsed < duration) {
+          requestAnimationFrame(renderLoop);
+        } else {
+          // Stop recording and clean up
+          recorder.stop();
+          document.body.removeChild(clone);
+        }
+      };
+      
+      // Start the render loop
+      renderLoop();
+      
     } catch (error) {
-      console.error("Error saving video:", error)
-      alert("There was an error creating the video. Please try again.")
+      console.error("Error saving video:", error);
+      alert("There was an error creating the video. Please try again.");
     }
   }
 
@@ -598,34 +780,6 @@ export default function CollageMaker() {
     setSelectedLayout(layout)
     // You can optionally close the preview after selecting
     // setShowLayoutPreview(false)
-  }
-
-  // Add a function to handle image deletion
-  const handleDeleteMedia = (mediaIndex: number) => {
-    // Create a new array without the deleted media item
-    const newMedia = [...collageState.media]
-    newMedia.splice(mediaIndex, 1)
-    
-    // Remove references to this media from cell mappings
-    const newCellMediaMap = { ...collageState.cellMediaMap }
-    
-    // For each cell that had this media or a media with a higher index
-    Object.keys(newCellMediaMap).forEach((cellId) => {
-      if (newCellMediaMap[cellId] === mediaIndex) {
-        // Remove the mapping for cells that had this media
-        delete newCellMediaMap[cellId]
-      } else if (newCellMediaMap[cellId] > mediaIndex) {
-        // Decrement the index for cells that had media with higher indices
-        newCellMediaMap[cellId] = newCellMediaMap[cellId] - 1
-      }
-    })
-    
-    // Update the collage state
-    setCollageState((prev) => ({
-      ...prev,
-      media: newMedia,
-      cellMediaMap: newCellMediaMap,
-    }))
   }
 
   // Don't render until mounted to prevent theme mismatch

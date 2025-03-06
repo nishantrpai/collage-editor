@@ -1343,6 +1343,11 @@ html2canvas@latest:
     css-line-break "^2.1.0"
     text-segmentation "^1.0.3"
 
+idb@^8.0.2:
+  version "8.0.2"
+  resolved "https://registry.npmjs.org/idb/-/idb-8.0.2.tgz#349af3974281879889e0572bbb231f978b9f3cf0"
+  integrity sha512-CX70rYhx7GDDQzwwQMDwF6kDRQi5vVs6khHUumDrMecBylKkwvZ8HWvKV08AGb7VbpoGCWUQ4aHzNDgoUiOIUg==
+
 input-otp@1.4.1:
   version "1.4.1"
   resolved "https://registry.npmjs.org/input-otp/-/input-otp-1.4.1.tgz#bc22e68b14b1667219d54adf74243e37ea79cf84"
