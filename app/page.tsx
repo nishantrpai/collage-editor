@@ -74,9 +74,9 @@ export default function CollageMaker() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [layoutToDelete, setLayoutToDelete] = useState<Layout | null>(null)
   const [collageState, setCollageState] = useState<CollageState>({
-    images: [],
+    media: [],
     imageTransforms: {},
-    cellImageMap: {},
+    cellMediaMap: {},
     cellBackgroundColors: {},
     gridPercentages: {},
     zIndexes: {},
@@ -147,9 +147,16 @@ export default function CollageMaker() {
       Array.from(files).forEach((file) => {
         const reader = new FileReader()
         reader.onloadend = () => {
+          const result = reader.result as string
           setCollageState((prev) => ({
             ...prev,
-            images: [...prev.images, reader.result as string],
+            media: [
+              ...prev.media,
+              {
+                type: file.type.startsWith("image/") ? "image" : "video",
+                url: result
+              }
+            ],
           }))
         }
         reader.readAsDataURL(file)
@@ -161,77 +168,172 @@ export default function CollageMaker() {
     setIsSaving(true)
     
     try {
-      // Get the actual collage canvas element
-      const canvasElement = document.querySelector(".collage-canvas") as HTMLElement
-      
-      if (!canvasElement) {
-        console.error("Could not find collage canvas element")
-        setIsSaving(false)
-        return
-      }
-      
-      // Create a wrapper with the exact dimensions and styling
-      const wrapper = document.createElement('div')
-      wrapper.style.position = 'absolute'
-      wrapper.style.left = '-9999px'
-      wrapper.style.top = '-9999px'
-      document.body.appendChild(wrapper)
-      
-      // Clone the canvas for capture
-      const clone = canvasElement.cloneNode(true) as HTMLElement
-      clone.style.transform = 'none' // Remove any scaling
-      clone.style.width = `${canvasSize.width}px`
-      clone.style.height = `${canvasSize.height}px`
-      
-      wrapper.appendChild(clone)
-      
-      // Use html2canvas with improved settings
-      const canvas = await html2canvas(clone, {
-        scale: 2, // Higher value for better quality
-        useCORS: true, // Allow cross-origin images
-        allowTaint: true, // Allow non-CORS images
-        backgroundColor: backgroundColor,
-        width: canvasSize.width,
-        height: canvasSize.height,
-        logging: false, // Disable logging
-        imageTimeout: 0, // No timeout for images
-        onclone: (clonedDoc) => {
-          // Any post-clone manipulations can be done here
-          const clonedCanvas = clonedDoc.querySelector('.collage-canvas')
-          if (clonedCanvas instanceof HTMLElement) {
-            // Make sure it has the right dimensions
-            clonedCanvas.style.width = `${canvasSize.width}px`
-            clonedCanvas.style.height = `${canvasSize.height}px`
-          }
-        }
+      // Check if we have any videos in the collage
+      const hasVideos = Object.values(collageState.cellMediaMap).some(mediaIndex => {
+        const media = collageState.media[mediaIndex]
+        return media && media.type === 'video'
       })
-      
-      // Convert to blob and download
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.download = `collage-${Date.now()}.png`
-          link.href = url
-          document.body.appendChild(link)
-          link.click()
-          
-          // Clean up
-          setTimeout(() => {
-            document.body.removeChild(link)
-            URL.revokeObjectURL(url)
-          }, 100)
-        }
-      }, 'image/png', 1.0) // Best quality PNG
-      
-      // Clean up the clone
-      document.body.removeChild(wrapper)
-      
+
+      // If we have videos, use a different approach
+      if (hasVideos) {
+        await saveAsVideo()
+      } else {
+        await saveAsImage()
+      }
     } catch (error) {
-      console.error("Error saving image:", error)
+      console.error("Error saving:", error)
     }
     
     setIsSaving(false)
+  }
+
+  const saveAsImage = async () => {
+    // Existing image save logic
+    const canvasElement = document.querySelector(".collage-canvas") as HTMLElement
+      
+    if (!canvasElement) {
+      console.error("Could not find collage canvas element")
+      return
+    }
+    
+    // Create a wrapper with the exact dimensions and styling
+    const wrapper = document.createElement('div')
+    wrapper.style.position = 'absolute'
+    wrapper.style.left = '-9999px'
+    wrapper.style.top = '-9999px'
+    document.body.appendChild(wrapper)
+    
+    // Clone the canvas for capture
+    const clone = canvasElement.cloneNode(true) as HTMLElement
+    clone.style.transform = 'none' // Remove any scaling
+    clone.style.width = `${canvasSize.width}px`
+    clone.style.height = `${canvasSize.height}px`
+    
+    wrapper.appendChild(clone)
+    
+    // Use html2canvas with improved settings
+    const canvas = await html2canvas(clone, {
+      scale: 2, // Higher value for better quality
+      useCORS: true, // Allow cross-origin images
+      allowTaint: true, // Allow non-CORS images
+      backgroundColor: backgroundColor,
+      width: canvasSize.width,
+      height: canvasSize.height,
+      logging: false, // Disable logging
+      imageTimeout: 0, // No timeout for images
+      onclone: (clonedDoc) => {
+        // Any post-clone manipulations can be done here
+        const clonedCanvas = clonedDoc.querySelector('.collage-canvas')
+        if (clonedCanvas instanceof HTMLElement) {
+          // Make sure it has the right dimensions
+          clonedCanvas.style.width = `${canvasSize.width}px`
+          clonedCanvas.style.height = `${canvasSize.height}px`
+        }
+      }
+    })
+    
+    // Convert to blob and download
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.download = `collage-${Date.now()}.png`
+        link.href = url
+        document.body.appendChild(link)
+        link.click()
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link)
+          URL.revokeObjectURL(url)
+        }, 100)
+      }
+    }, 'image/png', 1.0) // Best quality PNG
+    
+    // Clean up the clone
+    document.body.removeChild(wrapper)
+  }
+
+  const saveAsVideo = async () => {
+    // Notify user we're preparing the video
+    alert("Preparing video download. This may take a moment...")
+    
+    try {
+      // We'll need to use a canvas-based video recording approach
+      const canvasElement = document.querySelector(".collage-canvas") as HTMLElement
+      if (!canvasElement) {
+        throw new Error("Could not find canvas element")
+      }
+      
+      // Create a canvas for recording
+      const canvas = document.createElement('canvas')
+      canvas.width = canvasSize.width
+      canvas.height = canvasSize.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        throw new Error("Could not get canvas context")
+      }
+      
+      // Create a stream from the canvas
+      const stream = canvas.captureStream(60) // 30 FPS
+      
+      // Create recorder
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 8000000 // 5 Mbps
+      })
+      
+      const chunks: Blob[] = []
+      recorder.ondataavailable = e => chunks.push(e.data)
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `collage-video-${Date.now()}.webm`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+      
+      // Start recording
+      recorder.start()
+      
+      // Record for 5 seconds
+      const duration = 5000
+      const startTime = performance.now()
+      
+      // Animation frame drawing function
+      const draw = () => {
+        // Fill background
+        ctx.fillStyle = backgroundColor
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        
+        // Render the canvas content using html2canvas once per frame
+        html2canvas(canvasElement, {
+          backgroundColor: backgroundColor,
+          width: canvasSize.width,
+          height: canvasSize.height,
+          scale: 1,
+          useCORS: true,
+          allowTaint: true,
+        }).then(renderedCanvas => {
+          ctx.drawImage(renderedCanvas, 0, 0, canvas.width, canvas.height)
+          
+          const elapsed = performance.now() - startTime
+          if (elapsed < duration) {
+            requestAnimationFrame(draw)
+          } else {
+            // Stop recording after duration
+            recorder.stop()
+          }
+        })
+      }
+      
+      draw()
+    } catch (error) {
+      console.error("Error saving video:", error)
+      alert("There was an error creating the video. Please try again.")
+    }
   }
 
   // Updated helper function to include gap calculations
@@ -373,25 +475,25 @@ export default function CollageMaker() {
     setSelectedLayout((prev) => ({ ...prev, gap }))
   }
 
-  const handleImageSelect = (imageIndex: number) => {
+  const handleMediaSelect = (mediaIndex: number) => {
     if (selectedCellId) {
       setCollageState((prev) => ({
         ...prev,
-        cellImageMap: {
-          ...prev.cellImageMap,
-          [selectedCellId]: imageIndex,
+        cellMediaMap: {
+          ...prev.cellMediaMap,
+          [selectedCellId]: mediaIndex,
         },
       }))
     }
   }
 
-  const handleRemoveImage = (cellId: string) => {
+  const handleRemoveMedia = (cellId: string) => {
     setCollageState((prev) => {
-      const newCellImageMap = { ...prev.cellImageMap }
-      delete newCellImageMap[cellId]
+      const newCellMediaMap = { ...prev.cellMediaMap }
+      delete newCellMediaMap[cellId]
       return {
         ...prev,
-        cellImageMap: newCellImageMap,
+        cellMediaMap: newCellMediaMap,
       }
     })
   }
@@ -499,30 +601,30 @@ export default function CollageMaker() {
   }
 
   // Add a function to handle image deletion
-  const handleDeleteImage = (imageIndex: number) => {
-    // Create a new array without the deleted image
-    const newImages = [...collageState.images]
-    newImages.splice(imageIndex, 1)
+  const handleDeleteMedia = (mediaIndex: number) => {
+    // Create a new array without the deleted media item
+    const newMedia = [...collageState.media]
+    newMedia.splice(mediaIndex, 1)
     
-    // Remove references to this image from cell mappings
-    const newCellImageMap = { ...collageState.cellImageMap }
+    // Remove references to this media from cell mappings
+    const newCellMediaMap = { ...collageState.cellMediaMap }
     
-    // For each cell that had this image or an image with a higher index
-    Object.keys(newCellImageMap).forEach((cellId) => {
-      if (newCellImageMap[cellId] === imageIndex) {
-        // Remove the mapping for cells that had this image
-        delete newCellImageMap[cellId]
-      } else if (newCellImageMap[cellId] > imageIndex) {
-        // Decrement the index for cells that had images with higher indices
-        newCellImageMap[cellId] = newCellImageMap[cellId] - 1
+    // For each cell that had this media or a media with a higher index
+    Object.keys(newCellMediaMap).forEach((cellId) => {
+      if (newCellMediaMap[cellId] === mediaIndex) {
+        // Remove the mapping for cells that had this media
+        delete newCellMediaMap[cellId]
+      } else if (newCellMediaMap[cellId] > mediaIndex) {
+        // Decrement the index for cells that had media with higher indices
+        newCellMediaMap[cellId] = newCellMediaMap[cellId] - 1
       }
     })
     
     // Update the collage state
     setCollageState((prev) => ({
       ...prev,
-      images: newImages,
-      cellImageMap: newCellImageMap,
+      media: newMedia,
+      cellMediaMap: newCellMediaMap,
     }))
   }
 
@@ -580,9 +682,9 @@ export default function CollageMaker() {
               </TabsContent>
             </Tabs>
             <ImageSelector 
-              images={collageState.images} 
-              onSelect={handleImageSelect} 
-              onDelete={handleDeleteImage} // Add the delete handler
+              media={collageState.media}
+              onSelect={handleMediaSelect}
+              onDelete={handleDeleteMedia}
             />
           </ScrollArea>
         </div>
@@ -590,12 +692,12 @@ export default function CollageMaker() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Top Toolbar */}
-          <div className="h-14 border-b dark:border-gray-800 flex items-center px-6 py-6 gap-4">
+            <div className="h-14 border-b dark:border-gray-800 flex items-center px-6 py-6 gap-4">
             <ThemeToggle />
             <input
               type="file"
               multiple
-              accept="image/*"
+              accept="image/*,video/*"
               className="hidden"
               id="image-upload"
               onChange={handleFileUpload}
@@ -611,15 +713,15 @@ export default function CollageMaker() {
             </Button>
             <div className="ml-auto flex items-center gap-4">
               <Button
-                variant={isPanning ? "secondary" : "ghost"}
-                size="icon"
-                onClick={() => setIsPanning(!isPanning)}
-                className={isPanning ? "bg-accent" : ""}
+              variant={isPanning ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => setIsPanning(!isPanning)}
+              className={isPanning ? "bg-accent" : ""}
               >
-                <Move className="w-4 h-4" />
+              <Move className="w-4 h-4" />
               </Button>
               <div className="w-32">
-                <Slider value={[zoom]} onValueChange={(value) => setZoom(value[0])} min={10} max={200} step={1} />
+              <Slider value={[zoom]} onValueChange={(value) => setZoom(value[0])} min={10} max={200} step={1} />
               </div>
               <span className="text-sm">{zoom}%</span>
             </div>
@@ -627,58 +729,58 @@ export default function CollageMaker() {
               <Label className="mr-2">Canvas:</Label>
               
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-8 font-normal">
-                    {canvasPreset} <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-y-auto">
-                  <DropdownMenuLabel>Canvas Size Presets</DropdownMenuLabel>
-                  {CANVAS_PRESETS.map((preset) => (
-                    <DropdownMenuItem
-                      key={preset.name}
-                      onClick={() => handleCanvasPresetChange(preset.name)}
-                      className={canvasPreset === preset.name ? "bg-accent" : ""}
-                    >
-                      {preset.name} ({preset.width}×{preset.height})
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-8 font-normal">
+                {canvasPreset} <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-y-auto">
+                <DropdownMenuLabel>Canvas Size Presets</DropdownMenuLabel>
+                {CANVAS_PRESETS.map((preset) => (
+                <DropdownMenuItem
+                  key={preset.name}
+                  onClick={() => handleCanvasPresetChange(preset.name)}
+                  className={canvasPreset === preset.name ? "bg-accent" : ""}
+                >
+                  {preset.name} ({preset.width}×{preset.height})
+                </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
               </DropdownMenu>
               
               <div className="flex items-center gap-2">
-                <Input
-                  className="w-20 h-8 text-right"
-                  value={canvasDimension.width}
-                  onChange={(e) => handleCanvasDimensionChange("width", e.target.value)}
-                  onBlur={() => {
-                    if (canvasDimension.width === "" || parseInt(canvasDimension.width) <= 0) {
-                      setCanvasDimension(prev => ({ ...prev, width: canvasSize.width.toString() }))
-                    }
-                  }}
-                />
-                <span>×</span>
-                <Input
-                  className="w-20 h-8 text-right"
-                  value={canvasDimension.height}
-                  onChange={(e) => handleCanvasDimensionChange("height", e.target.value)}
-                  onBlur={() => {
-                    if (canvasDimension.height === "" || parseInt(canvasDimension.height) <= 0) {
-                      setCanvasDimension(prev => ({ ...prev, height: canvasSize.height.toString() }))
-                    }
-                  }}
-                />
+              <Input
+                className="w-20 h-8 text-right"
+                value={canvasDimension.width}
+                onChange={(e) => handleCanvasDimensionChange("width", e.target.value)}
+                onBlur={() => {
+                if (canvasDimension.width === "" || parseInt(canvasDimension.width) <= 0) {
+                  setCanvasDimension(prev => ({ ...prev, width: canvasSize.width.toString() }))
+                }
+                }}
+              />
+              <span>×</span>
+              <Input
+                className="w-20 h-8 text-right"
+                value={canvasDimension.height}
+                onChange={(e) => handleCanvasDimensionChange("height", e.target.value)}
+                onBlur={() => {
+                if (canvasDimension.height === "" || parseInt(canvasDimension.height) <= 0) {
+                  setCanvasDimension(prev => ({ ...prev, height: canvasSize.height.toString() }))
+                }
+                }}
+              />
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox
-                id="free-flow"
-                checked={isFreeFlow}
-                onCheckedChange={(checked) => setIsFreeFlow(checked as boolean)}
+              id="free-flow"
+              checked={isFreeFlow}
+              onCheckedChange={(checked) => setIsFreeFlow(checked as boolean)}
               />
               <Label htmlFor="free-flow">Free Flow</Label>
             </div>
-          </div>
+            </div>
 
           {/* Canvas Area */}
           <div className="flex-1 grid grid-cols-[1fr,300px]">
@@ -761,7 +863,7 @@ export default function CollageMaker() {
                       layout={selectedLayout}
                       collageState={collageState}
                       onCellSelect={handleCellClick}
-                      onRemoveImage={handleRemoveImage}
+                      onRemoveMedia={handleRemoveMedia}
                       selectedCellId={selectedCellId}
                       isSaving={isSaving}
                       backgroundColor={backgroundColor}

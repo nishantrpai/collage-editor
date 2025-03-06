@@ -3,8 +3,8 @@ export interface Layout {
   name: string
   areas: string
   cells: { id: string }[]
-  gap?: number
   isCustom?: boolean
+  gap?: number
 }
 
 export interface ImageTransform {
@@ -13,10 +13,19 @@ export interface ImageTransform {
   offsetY: number
   rotation: number
   scale: number
-  borderRadius?: number
+  borderRadius: number
+}
+
+export type MediaItem = {
+  type: 'image' | 'video'
+  url: string
 }
 
 export interface CollageState {
-  images: string[]
+  media: MediaItem[]
   imageTransforms: Record<string, ImageTransform>
+  cellMediaMap: Record<string, number>
+  cellBackgroundColors: Record<string, string>
+  gridPercentages: Record<string, { width: number; height: number; offsetX: number; offsetY: number }>
+  zIndexes: Record<string, number>
 }

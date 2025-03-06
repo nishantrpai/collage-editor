@@ -1,13 +1,13 @@
 "use client"
 
 import type { Layout, CollageState } from "./types"
-import { ImageCell } from "./image-cell"
+import { MediaCell } from "./media-cell"
 
 interface CollageCanvasProps {
   layout: Layout
   collageState: CollageState
   onCellSelect?: (cellId: string | null) => void
-  onRemoveImage?: (cellId: string) => void
+  onRemoveMedia?: (cellId: string) => void
   selectedCellId?: string | null
   isPreview?: boolean
   isSaving?: boolean
@@ -20,7 +20,7 @@ export function CollageCanvas({
   layout,
   collageState,
   onCellSelect,
-  onRemoveImage,
+  onRemoveMedia,
   selectedCellId,
   isPreview,
   isSaving,
@@ -59,23 +59,22 @@ export function CollageCanvas({
           offsetX: 0,
           offsetY: 0,
         }
-
-        // Calculate the initial grid position for free flow mode
-        const gridArea = cellId
+        const mediaIndex = collageState.cellMediaMap[cellId]
+        const mediaItem = typeof mediaIndex === 'number' ? collageState.media[mediaIndex] : undefined
         
         return (
-          <ImageCell
+          <MediaCell
             key={index}
             cellId={cellId}
-            gridArea={gridArea}
-            image={collageState.images[collageState.cellImageMap[cellId]]}
+            gridArea={cellId}
+            media={mediaItem}
             transform={collageState.imageTransforms[cellId]}
             backgroundColor={collageState.cellBackgroundColors[cellId] || bgColor}
             onClick={(e) => {
               e.stopPropagation()
               onCellSelect && onCellSelect(cellId)
             }}
-            onRemove={onRemoveImage ? () => onRemoveImage(cellId) : undefined}
+            onRemove={onRemoveMedia ? () => onRemoveMedia(cellId) : undefined}
             isSelected={selectedCellId === cellId}
             isPreview={isPreview}
             isSaving={isSaving}
