@@ -669,6 +669,35 @@ export default function CollageMaker() {
     }
   }
 
+  const handleMediaDrop = useCallback((cellId: string, mediaIndex: number) => {
+    setCollageState((prev) => ({
+      ...prev,
+      cellMediaMap: {
+        ...prev.cellMediaMap,
+        [cellId]: mediaIndex,
+      },
+    }))
+  }, [])
+
+  const handleCellDrop = useCallback((targetCellId: string, sourceCellId: string) => {
+    setCollageState((prev) => {
+      const newCellMediaMap = { ...prev.cellMediaMap }
+      const sourceMedia = newCellMediaMap[sourceCellId]
+      const targetMedia = newCellMediaMap[targetCellId]
+      if (sourceMedia !== undefined) {
+        newCellMediaMap[targetCellId] = sourceMedia
+      } else {
+        delete newCellMediaMap[targetCellId]
+      }
+      if (targetMedia !== undefined) {
+        newCellMediaMap[sourceCellId] = targetMedia
+      } else {
+        delete newCellMediaMap[sourceCellId]
+      }
+      return { ...prev, cellMediaMap: newCellMediaMap }
+    })
+  }, [])
+
   const handleRemoveMedia = (cellId: string) => {
     setCollageState((prev) => {
       const newCellMediaMap = { ...prev.cellMediaMap }
@@ -1018,6 +1047,8 @@ export default function CollageMaker() {
                       collageState={collageState}
                       onCellSelect={handleCellClick}
                       onRemoveMedia={handleRemoveMedia}
+                      onCellDrop={handleCellDrop}
+                      onMediaDrop={handleMediaDrop}
                       selectedCellId={selectedCellId}
                       isSaving={isSaving}
                       backgroundColor={backgroundColor}

@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef, useState, useEffect } from "react"
-import { useDrag } from "react-dnd"
+import { useRef, useState, useCallback } from "react"
+import { useDrag, useDrop } from "react-dnd"
 import type { ImageTransform, MediaItem } from "./types"
 import { Trash } from "lucide-react"
 
@@ -13,6 +13,8 @@ interface MediaCellProps {
   backgroundColor?: string
   onClick?: (e: React.MouseEvent) => void
   onRemove?: () => void
+  onCellDrop?: (targetCellId: string, sourceCellId: string) => void
+  onMediaDrop?: (cellId: string, mediaIndex: number) => void
   isSelected?: boolean
   isPreview?: boolean
   isSaving?: boolean
@@ -35,6 +37,8 @@ export function MediaCell({
   backgroundColor = "#ffffff",
   onClick,
   onRemove,
+  onCellDrop,
+  onMediaDrop,
   isSelected,
   isPreview,
   isSaving,
@@ -77,16 +81,41 @@ export function MediaCell({
       collect: (monitor) => ({
         isDragging: !!monitor.isDragging(),
       }),
+      canDrag: !isPreview && !isSaving,
     }),
-    [cellId]
+    [cellId, isPreview, isSaving]
   )
 
-  // Only make the cell draggable if it's free flow mode and the cell is selected
-  useEffect(() => {
-    if (ref.current && isFreeFlow && isSelected) {
-      drag(ref)
-    }
-  }, [isFreeFlow, isSelected, drag])
+  const [{ isOver }, drop] = useDrop(
+    () => ({
+      accept: ["CELL", "MEDIA"],
+      drop: (item: { id: string } | { index: number }, monitor) => {
+        const itemType = monitor.getItemType()
+        if (itemType === "CELL") {
+          const { id: sourceCellId } = item as { id: string }
+          if (sourceCellId !== cellId) {
+            onCellDrop && onCellDrop(cellId, sourceCellId)
+          }
+        } else if (itemType === "MEDIA") {
+          const { index: mediaIndex } = item as { index: number }
+          onMediaDrop && onMediaDrop(cellId, mediaIndex)
+        }
+      },
+      collect: (monitor) => ({
+        isOver: monitor.isOver(),
+      }),
+    }),
+    [cellId, onCellDrop, onMediaDrop]
+  )
+
+  const combinedRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      drag(el)
+      drop(el)
+      ref.current = el
+    },
+    [drag, drop]
+  )
 
   // Calculate transform style for the media
   const mediaTransformStyle = {
@@ -96,8 +125,11 @@ export function MediaCell({
   
   return (
     <div
-      ref={ref}
-      style={cellStyle}
+      ref={isPreview ? undefined : combinedRef}
+      style={{
+        ...cellStyle,
+        opacity: isDragging ? 0.5 : 1,
+      }}
       onClick={onClick}
       onMouseEnter={() => !isPreview && setIsHovering(true)}
       onMouseLeave={() => !isPreview && setIsHovering(false)}
@@ -152,6 +184,11 @@ export function MediaCell({
       {/* Show a slightly visible border when hovering over a cell in edit mode */}
       {!isPreview && isHovering && !isSelected && (
         <div className="absolute inset-0 border-2 border-primary/30 pointer-events-none"></div>
+      )}
+
+      {/* Highlight when a dragged item is over this cell */}
+      {!isPreview && isOver && (
+        <div className="absolute inset-0 border-2 border-primary bg-primary/10 pointer-events-none"></div>
       )}
     </div>
   )
