@@ -8,6 +8,8 @@ interface CollageCanvasProps {
   collageState: CollageState
   onCellSelect?: (cellId: string | null) => void
   onRemoveMedia?: (cellId: string) => void
+  onCellDrop?: (targetCellId: string, sourceCellId: string) => void
+  onMediaDrop?: (cellId: string, mediaIndex: number) => void
   selectedCellId?: string | null
   isPreview?: boolean
   isSaving?: boolean
@@ -21,6 +23,8 @@ export function CollageCanvas({
   collageState,
   onCellSelect,
   onRemoveMedia,
+  onCellDrop,
+  onMediaDrop,
   selectedCellId,
   isPreview,
   isSaving,
@@ -75,6 +79,8 @@ export function CollageCanvas({
               onCellSelect && onCellSelect(cellId)
             }}
             onRemove={onRemoveMedia ? () => onRemoveMedia(cellId) : undefined}
+            onCellDrop={onCellDrop}
+            onMediaDrop={onMediaDrop}
             isSelected={selectedCellId === cellId}
             isPreview={isPreview}
             isSaving={isSaving}
